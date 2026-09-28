@@ -61,6 +61,7 @@ Row {
                 osdHideTimer.restart()
               })
               break
+            case "mic":     box.micModule = item; break
             case "network":   box.networkModule = item; break
             case "bluetooth": box.bluetoothModule = item; break
             case "clock":     box.clockModule = item; break
@@ -70,11 +71,15 @@ Row {
       }
       TapHandler {
         acceptedButtons: Qt.LeftButton
-        enabled: !isCustom && (modelData === "volume" || modelData === "network" || modelData === "bluetooth")
+        enabled: !isCustom && (modelData === "volume" || modelData === "mic" || modelData === "network" || modelData === "bluetooth")
         onTapped: {
           if (isCustom) return
           switch (modelData) {
             case "volume":
+              if (moduleLoader.item && moduleLoader.item.toggleMute)
+                moduleLoader.item.toggleMute()
+              break
+            case "mic":
               if (moduleLoader.item && moduleLoader.item.toggleMute)
                 moduleLoader.item.toggleMute()
               break
@@ -95,6 +100,7 @@ Row {
           ? (modelData.click
              ? Qt.PointingHandCursor : Qt.ArrowCursor)
           : (modelData === "workspaces" || modelData === "volume"
+             || modelData === "mic"
              || modelData === "network" || modelData === "bluetooth")
             ? Qt.PointingHandCursor : Qt.ArrowCursor
         onHoveredChanged: {

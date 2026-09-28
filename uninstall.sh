@@ -5,22 +5,22 @@ if [[ ! "$EUID" -eq 0 ]]; then
    exit 1
 fi
 
-if [[ -e /usr/share/chillpill-shell ]]; then
-   rm -rf /usr/share/chillpill-shell
+if [[ -e /usr/share/chillnotch-dynamic ]]; then
+   rm -rf /usr/share/chillnotch-dynamic
 fi
 
-if [[ -e /usr/local/bin/chillpill-shell ]]; then
-   rm /usr/local/bin/chillpill-shell
+if [[ -e /usr/local/bin/chillnotch-dynamic ]]; then
+   rm /usr/local/bin/chillnotch-dynamic
 fi
 
-if [[ -e /usr/share/applications/chillpill.desktop ]]; then
-   rm /usr/share/applications/chillpill.desktop
+if [[ -e /usr/share/applications/chillnotch-dynamic.desktop ]]; then
+   rm /usr/share/applications/chillnotch-dynamic.desktop
 fi
 
-if [[ -e /etc/systemd/user/chillpill-shell.service ]]; then
-   rm /etc/systemd/user/chillpill-shell.service
+if [[ -e /etc/systemd/user/chillnotch-dynamic.service ]]; then
+   rm /etc/systemd/user/chillnotch-dynamic.service
 fi
 
 pkill qs
 
-echo "ChillPill-Shell uninstalled successfully :("
+echo "ChillNotch-Dynamic uninstalled successfully :("

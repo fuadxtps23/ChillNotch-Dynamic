@@ -10,8 +10,8 @@ if not username:
     print(f"{YELLOW}SUDO_USER is empty, need your username manually for the config directory:{RESET}\n  {sys.argv[0]} <username>")
     sys.exit(1)
 
-ROOT_CFG = "/usr/share/chillpill-shell/config.jsonc.example"
-HOME_CFG = f"/home/{username}/.config/chillpill-shell/config.jsonc"
+ROOT_CFG = "/usr/share/chillnotch-dynamic/config.jsonc.example"
+HOME_CFG = f"/home/{username}/.config/chillnotch-dynamic/config.jsonc"
 
 if not isfile(ROOT_CFG):
     print(f"{RED}{ROOT_CFG} not found.{RESET}")

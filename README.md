@@ -1,13 +1,13 @@
-# ChillPill-Shell
+# ChillNotch-Dynamic
 
 <div align="center">
 
-[![ChillPill-Shell 0.10.0](https://img.shields.io/badge/CP--Shell-0.10.0-blue.svg)](https://github.com/LUCKYS1NGHH/ChillPill-Shell)
-[![GitHub Stars](https://img.shields.io/github/stars/LUCKYS1NGHH/ChillPill-Shell?style=social)](https://github.com/LUCKYS1NGHH/ChillPill-Shell/stargazers)
+[![ChillNotch-Dynamic 0.10.0](https://img.shields.io/badge/ChillNotch--Dynamic-0.10.0-blue.svg)](https://github.com/LUCKYS1NGHH/ChillNotch-Dynamic)
+[![GitHub Stars](https://img.shields.io/github/stars/LUCKYS1NGHH/ChillNotch-Dynamic?style=social)](https://github.com/LUCKYS1NGHH/ChillNotch-Dynamic/stargazers)
 [![Quickshell 0.3.0+](https://img.shields.io/badge/Quickshell-0.3.0+-green.svg)](https://github.com/quickshell-mirror/quickshell)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-ChillPill-Shell is a **lightweight**, feature-rich dynamic pill bar for Hyprland, built with **Quickshell**.
+ChillNotch-Dynamic is a **lightweight**, feature-rich dynamic pill bar for Hyprland, built with **Quickshell**.
 It's aimed squarely at users running without a dedicated GPU (like me) — eye candy that doesn't cost you a discrete card. Runs great on integrated graphics.
 
 It runs as a **standalone app**: launch it from your terminal or app launcher when you want it, rather than having it baked
@@ -117,16 +117,18 @@ into your session at all times. It's not bound to any dotfiles.
 
 ## Features
 
-- **Main Pill Bar**                - Battery, volume, workspaces, network, clock (default; customizable) — for more module options, see 'Know more' below.
-- **Control Center**               - Media player, buttons (WiFi, Silent Notifs, Timer, Bluetooth), volume & brightness sliders, notification stack
+- **Main Pill Bar**                - Battery, volume, microphone, workspaces, network, clock (default; customizable) — for more module options, see 'Know more' below.
+- **Control Center**               - Media player, buttons (WiFi, Silent Notifs, Timer, Bluetooth, On-Screen Keyboard, Idle Inhibitor, Night Light, Monitor Mirror), volume, microphone & brightness sliders, night-light temperature slider, notification stack
 - **Cliphist (Clipboard Manager)** - Search, clipboard image preview, item index status, multi select to delete many items at once (`Shift + Up/Down` range, `Shift + Space` pick, `Del` to delete), `Tab` to full preview the clipboard image/text
-- **Mini Dashboard**               - Profile image, username, hostname, uptime, battery, basic network info, today's data usage, datetime, weather, calendar, power buttons (lock, sleep, shutdown, reboot)
+- **Mini Dashboard**               - Profile image, username, hostname, uptime, battery, basic network info, system tray (below the IP, centered), today's data usage, datetime, weather, calendar, power buttons (lock, sleep, shutdown, reboot)
   - **Calendar Popup**             - Previous/Next month buttons, event dates
   - **Weather Popup**              - Feel, humidity, wind, sunrise & sunset, upcoming 2 days weather forecast, manual refresh button
 - **DBus Notification**            - App icon (optional), summary, body (YES! you can ditch swaync/dunst fully now)
-- **OSD**                          - Battery, volume, brightness, timer
-- **Wallpaper switcher**           - A wallpaper switcher
+- **OSD**                          - Volume, microphone, brightness, timer, battery, Caps Lock / Num Lock and mic-mute OSDs. OSD takes the pill's own size (the pill shrinks to OSD width while it's on screen) and the whole bar hops to the overlay layer while an OSD or notification is visible, then back to top
+- **System Tray**                  - Tray apps in the mini dashboard below the IP, centered. Left click activates, right click opens the app's own context menu
+- **Wallpaper switcher**           - Wallpaper switcher with previews; animated GIF wallpapers work too
 - **Power Menu**                   - Dedicated power pill state with 5 actions (Lock, Sleep, Logout, Restart, Shutdown) and action confirmation prompt
+- **Click-outside to close**       - Any open pill state (control center, cliphist, mini dashboard, launcher, wallpaper switcher, power menu, calendar, weather) closes on a click outside the pill
 
 <details>
 <summary>Know more</summary>
@@ -134,7 +136,7 @@ into your session at all times. It's not bound to any dotfiles.
 ---
 - Main pill bar modules has tooltips
 
-- Extra modules available for the pill bar beyond the defaults: `weather`, `bluetooth`, `vpn`, `notifications`, `brightness`
+- Extra modules available for the pill bar beyond the defaults: `mic`, `weather`, `bluetooth`, `vpn`, `notifications`, `brightness`
 
 - Pill bar supports custom modules (waybar-style) — run any command/script in the bar with `format`/`tooltip` templates, refresh intervals, streaming output and click actions (see [Custom pill modules](#custom-pill-modules)).
 
@@ -164,7 +166,7 @@ into your session at all times. It's not bound to any dotfiles.
   - case 2: device just wants us to display a code
   - case 3: device wants a yes/no confirmation of a shown passkey
 
-- Cliphist shows image previews from `~/.cache/chillpill-shell/cliphist-imgs` by converting image binaries into real images and save there. if
+- Cliphist shows image previews from `~/.cache/chillnotch-dynamic/cliphist-imgs` by converting image binaries into real images and save there. if
   you want these images cache to auto delete when you delete the cliphist (clipboard manager) image item, then there's `deleteCliphistImgCache` config
   option (enabled by default).
 
@@ -183,18 +185,32 @@ into your session at all times. It's not bound to any dotfiles.
 
 - Your today's data usage in mini dashboard is shown by [nusgmon](https://github.com/LUCKYS1NGHH/nusgmon) (i am the creator of it too).
 
-- Wallpaper switcher shows you the filename of the image on hover. uses `awww` in backend to update the wallpaper by default (optional dep).
+- Wallpaper switcher shows you the filename of the image on hover. uses `awww` in backend to update the wallpaper by default (optional dep). `gif` files in the wallpapers folder show up and apply as animated wallpapers.
+
+- Control center's second button row:
+
+  - `Keyboard` - on-screen keyboard (wvkbd), hidden by default
+  - `Inhibit` - blocks idle/sleep (systemd-inhibit), stays on until toggled off
+  - `Night` - hyprsunset night light; when on, a color temperature slider appears below brightness
+  - `Mirror` - mirrors your screen to an external monitor (HDMI)
+
+  Button states are re-derived from the real processes on every control center open, so they don't lie after a restart.
+
+- Mic volume lives in the pill and in the control center (slider right under volume). Muting from your laptop's mic-mute key shows the mic OSD too.
+
+- Caps Lock / Num Lock changes show an OSD (polls `hyprctl devices`), same size as the volume/brightness OSD.
+
+- Mini dashboard shows your tray apps centered below the IP. Right click one for the app's own menu (needs the shell running in QApplication mode, which `install.sh`/`launcher.sh` already handle).
 ---
 </details>
 
 ## Configurable options
-> Located at `~/.config/chillpill-shell/config.jsonc`
+> Located at `~/.config/chillnotch-dynamic/config.jsonc`
 
 | Option | Description | Default |
 |---|---|---|
 | `displayPicture` | Profile image path for mini dashboard | `~/.pfp.png` |
 | `clockFormat` | Clock format for the pill bar | `hh:mm` |
-| `pillTopMargin` | Top spacing of pill bar | `9` |
 | `pillBottomMargin` | Bottom spacing of pill bar | `26` |
 | `pillScale` | Scale factor for pill bar size | `1.0` |
 | `pillModules` | Pill bar modules order/add/remove. Accepts built-in module names or custom module (see [Custom pill modules](#custom-pill-modules)) | `["battery", "volume", "workspaces", "network", "clock"]` |
@@ -234,7 +250,6 @@ into your session at all times. It's not bound to any dotfiles.
 {
   "displayPicture": "~/.pfp.png",
   "clockFormat": "hh:mm",
-  "pillTopMargin": 9,
   "pillBottomMargin": 26,
   "pillModules": ["battery", "volume", "workspaces", "network", "clock"],
   "pillOnHover": false,
@@ -296,9 +311,9 @@ The command may print **plain text** (used as `{text}`) or a **JSON object** per
 `text` is required; `tooltip`, `color` and `icon` are optional. single `{text}` in JSON output fills the `{tooltip}` same.
 
 A sample script ship in the repo and get installed to
-`~/.config/chillpill-shell/modules/`: `cpu-temp.sh` (one-shot CPU temperature,
+`~/.config/chillnotch-dynamic/modules/`: `cpu-temp.sh` (one-shot CPU temperature,
 prints a temperature-dependent `{icon, color, text, tooltip}` JSON line).
-Use your custom scripts to see specific/niche info in ChillPill-Shell's Pill Bar.
+Use your custom scripts to see specific/niche info in ChillNotch-Dynamic's Pill Bar.
 
 Example `pillModules`:
 
@@ -306,7 +321,7 @@ Example `pillModules`:
 "pillModules": [
   "battery", "volume", "workspaces", "notifications", "network", "clock",
   {
-    "run": "~/.config/chillpill-shell/modules/cpu-temp.sh", // required - rest are optional
+    "run": "~/.config/chillnotch-dynamic/modules/cpu-temp.sh", // required - rest are optional
     "format": "{icon} {text}",
     "tooltip": "{tooltip}",
     "every": 10
@@ -347,7 +362,7 @@ Example `pillModules`:
 #### Arch users (AUR)
 
 ```bash
-paru -S chillpill-shell
+paru -S chillnotch-dynamic
 ```
 
 #### NixOS users (flake with Home Manager)
@@ -357,8 +372,8 @@ Add this repository as an input to your flake:
 ```nix
 {
   inputs = {
-    chillpill-shell = {
-      url = "github:LUCKYS1NGHH/chillpill-shell";
+    chillnotch-dynamic = {
+      url = "github:LUCKYS1NGHH/chillnotch-dynamic";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -368,13 +383,13 @@ Add this repository as an input to your flake:
 Enable and configure it in your Home Manager configuration:
 
 ```nix
-{ chillpill-shell, ... }:
+{ chillnotch-dynamic, ... }:
 {
   imports = [
-    chillpill-shell.homeManagerModules.default
+    chillnotch-dynamic.homeManagerModules.default
   ];
 
-  programs.chillpill-shell = {
+  programs.chillnotch-dynamic = {
     enable = true;
     settings = {
       clockFormat = "HH:mm";
@@ -386,8 +401,8 @@ Enable and configure it in your Home Manager configuration:
 
 #### Other
 ```bash
-git clone --depth=1 https://github.com/LUCKYS1NGHH/ChillPill-Shell.git
-cd ChillPill-Shell
+git clone --depth=1 https://github.com/LUCKYS1NGHH/ChillNotch-Dynamic.git
+cd ChillNotch-Dynamic
 chmod +x install.sh
 sudo ./install.sh # use --skip-deps to skip dependencies installation (arch currently)
 ```
@@ -399,7 +414,7 @@ sudo ./install.sh # use --skip-deps to skip dependencies installation (arch curr
 
 #### AUR
 ```bash
-paru -R chillpill-shell
+paru -R chillnotch-dynamic
 ```
 
 #### Other
@@ -417,35 +432,35 @@ To auto-run at every time you start your Hyprland, paste this code in your `~/.c
 
 ```lua
 hl.on("hyprland.start", function()
-   hl.exec_cmd("chillpill-shell")
+   hl.exec_cmd("chillnotch-dynamic")
 end)
 ```
 
 ## Key Bindings
 
-Keybindings are highly recommended for ChillPill-Shell in your Hyprland, Just paste this code in your Hyprland (Lua) config file.
+Keybindings are highly recommended for ChillNotch-Dynamic in your Hyprland, Just paste this code in your Hyprland (Lua) config file.
 
 > Adjust key combinations by your preferences
 
 ```lua
-hl.bind(mainMod .. " + CTRL + C",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call controlCenter toggle"))
-hl.bind(mainMod .. " + CTRL + V",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call cliphist toggle"))
-hl.bind(mainMod .. " + CTRL + B",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call miniDashboard toggle"))
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call appLauncher toggle"))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call wallpaperSwitcher toggle"))
-hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillpill-shell call powerMenu toggle"))
+hl.bind(mainMod .. " + CTRL + C",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call controlCenter toggle"))
+hl.bind(mainMod .. " + CTRL + V",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call cliphist toggle"))
+hl.bind(mainMod .. " + CTRL + B",  hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call miniDashboard toggle"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call appLauncher toggle"))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call wallpaperSwitcher toggle"))
+hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch-dynamic call powerMenu toggle"))
 ```
 
 <details>
 <summary>NixOS version</summary>
 
 ```lua
-hl.bind(mainMod .. " + CTRL + C",  hl.dsp.exec_cmd("chillpill-shell-ipc call controlCenter toggle"))
-hl.bind(mainMod .. " + CTRL + V",  hl.dsp.exec_cmd("chillpill-shell-ipc call cliphist toggle"))
-hl.bind(mainMod .. " + CTRL + B",  hl.dsp.exec_cmd("chillpill-shell-ipc call miniDashboard toggle"))
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("chillpill-shell-ipc call appLauncher toggle"))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("chillpill-shell-ipc call wallpaperSwitcher toggle"))
-hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("chillpill-shell-ipc call powerMenu toggle"))
+hl.bind(mainMod .. " + CTRL + C",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call controlCenter toggle"))
+hl.bind(mainMod .. " + CTRL + V",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call cliphist toggle"))
+hl.bind(mainMod .. " + CTRL + B",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call miniDashboard toggle"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call appLauncher toggle"))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call wallpaperSwitcher toggle"))
+hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call powerMenu toggle"))
 ```
 </details>
 
@@ -456,10 +471,10 @@ hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("chillpill-shell-ipc call powerM
 
 Thanks to the contributors who helped make the shell better, and special thanks to [enhaoswen](https://github.com/enhaoswen) for the Wi-Fi controller backend for Quickshell.
 
-<a href="https://github.com/LUCKYS1NGHH/chillpill-shell/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=LUCKYS1NGHH/chillpill-shell" width="150" />
+<a href="https://github.com/LUCKYS1NGHH/chillnotch-dynamic/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=LUCKYS1NGHH/chillnotch-dynamic" width="150" />
 </a>
 
 ### Author
 
-LUCKYS1NGHH / https://github.com/LUCKYS1NGHH/ChillPill-Shell
+LUCKYS1NGHH / https://github.com/LUCKYS1NGHH/ChillNotch-Dynamic

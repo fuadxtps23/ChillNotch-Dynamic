@@ -20,7 +20,7 @@ die()   { echo -e "${RED}[x]${NC} $*" >&2; exit 1; }
 bin_exists() { command -v "$1" >/dev/null; }
 
 if [[ ! "$EUID" -eq 0 ]]; then
-    die "Please run this script as root to install chillpill-shell. i have to setup some things."
+    die "Please run this script as root to install chillnotch-dynamic. i have to setup some things."
 fi
 
 needed_pkgs=(quickshell cliphist brightnessctl
@@ -124,9 +124,9 @@ fi
 
 # make directories
 info "Creating few new directories"
-mkdir -p /usr/share/chillpill-shell/IslandBackend
-mkdir -p "$REAL_HOME/.config/chillpill-shell/modules"
-mkdir -p "$REAL_HOME/.cache/chillpill-shell"
+mkdir -p /usr/share/chillnotch-dynamic/IslandBackend
+mkdir -p "$REAL_HOME/.config/chillnotch-dynamic/modules"
+mkdir -p "$REAL_HOME/.cache/chillnotch-dynamic"
 #mkdir -p /etc/systemd/user
 
 # build backend
@@ -145,7 +145,7 @@ if [[ -f "$HASH_FILE" ]]; then
     if sha256sum -c "$HASH_FILE" --status 2>/dev/null; then
         all_exist=true
         for file in "${backend_files[@]}"; do
-            if [[ ! -f "/usr/share/chillpill-shell/IslandBackend/$file" ]]; then
+            if [[ ! -f "/usr/share/chillnotch-dynamic/IslandBackend/$file" ]]; then
                 all_exist=false
                 break
             fi
@@ -167,7 +167,7 @@ if $needs_build; then
        build/libIslandBackendPlugin.so \
        build/qmldir \
        build/IslandBackend.qmltypes \
-         /usr/share/chillpill-shell/IslandBackend
+         /usr/share/chillnotch-dynamic/IslandBackend
 
     echo "$SRC_FILES" | xargs sha256sum > "$HASH_FILE"
 else
@@ -175,43 +175,43 @@ else
 fi
 
 # copy directories
-info "Copying scripts and share directory to /usr/share/chillpill-shell"
-cp -r scripts /usr/share/chillpill-shell
-cp -r share /usr/share/chillpill-shell
+info "Copying scripts and share directory to /usr/share/chillnotch-dynamic"
+cp -r scripts /usr/share/chillnotch-dynamic
+cp -r share /usr/share/chillnotch-dynamic
 
 # copy QML files
 info "Copying QML files"
-install -m 644 qml/* /usr/share/chillpill-shell
+install -m 644 qml/* /usr/share/chillnotch-dynamic
 
 # copy launcher (bash)
 info "Copying the launcher.sh"
-install -m 755 launcher.sh /usr/local/bin/chillpill-shell
+install -m 755 launcher.sh /usr/local/bin/chillnotch-dynamic
 
 # copy app launcher
 info "Copying app launcher"
-install -m 644 chillpill.desktop /usr/share/applications
+install -m 644 chillnotch-dynamic.desktop /usr/share/applications
 
 # set correct permissions at last
 info "Setting up right permissions"
 
-chmod 755 /usr/share/chillpill-shell
-chmod 755 /usr/share/chillpill-shell/share
-chmod 644 /usr/share/chillpill-shell/share/*
-chmod 755 /usr/share/chillpill-shell/scripts
-chmod 755 /usr/share/chillpill-shell/scripts/*
-chmod 755 /usr/share/chillpill-shell/IslandBackend
-chmod 644 /usr/share/chillpill-shell/IslandBackend/*
-chmod 755 "$REAL_HOME/.config/chillpill-shell/modules"
+chmod 755 /usr/share/chillnotch-dynamic
+chmod 755 /usr/share/chillnotch-dynamic/share
+chmod 644 /usr/share/chillnotch-dynamic/share/*
+chmod 755 /usr/share/chillnotch-dynamic/scripts
+chmod 755 /usr/share/chillnotch-dynamic/scripts/*
+chmod 755 /usr/share/chillnotch-dynamic/IslandBackend
+chmod 644 /usr/share/chillnotch-dynamic/IslandBackend/*
+chmod 755 "$REAL_HOME/.config/chillnotch-dynamic/modules"
 
 # chown back the files permission to real user
-chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.config/chillpill-shell"
-chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.cache/chillpill-shell"
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.config/chillnotch-dynamic"
+chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.cache/chillnotch-dynamic"
 
 # setup config file
 info "Setting up config file"
-install -m 644 config.jsonc /usr/share/chillpill-shell/config.jsonc.example
+install -m 644 config.jsonc /usr/share/chillnotch-dynamic/config.jsonc.example
 
-if [[ -f "$REAL_HOME/.config/chillpill-shell/config.jsonc" ]]; then
+if [[ -f "$REAL_HOME/.config/chillnotch-dynamic/config.jsonc" ]]; then
    info "Updating your config file..."
    if [[ -f scripts/config_update.py ]] && bin_exists python3; then
       python3 scripts/config_update.py "$SUDO_USER" || warn "Config file update failed."
@@ -219,18 +219,18 @@ if [[ -f "$REAL_HOME/.config/chillpill-shell/config.jsonc" ]]; then
       warn "scripts/config_update.py missing OR python not installed, skipping config update."
    fi
 else
-   install -m 644 config.jsonc "$REAL_HOME/.config/chillpill-shell/config.jsonc"
+   install -m 644 config.jsonc "$REAL_HOME/.config/chillnotch-dynamic/config.jsonc"
 fi
 
 # place systemd file
 #info "Copying systemd file to /etc/systemd/user"
-#install -m 644 chillpill-shell.service /etc/systemd/user/chillpill-shell.service
+#install -m 644 chillnotch-dynamic.service /etc/systemd/user/chillnotch-dynamic.service
 
 # minor adjustments
 info "Few adjustments"
-if [[ -f /usr/share/chillpill-shell/scripts/cpu-temp.sh ]]; then
-   mv /usr/share/chillpill-shell/scripts/cpu-temp.sh "$REAL_HOME/.config/chillpill-shell/modules/cpu-temp.sh"
-   chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.config/chillpill-shell/modules/cpu-temp.sh"
+if [[ -f /usr/share/chillnotch-dynamic/scripts/cpu-temp.sh ]]; then
+   mv /usr/share/chillnotch-dynamic/scripts/cpu-temp.sh "$REAL_HOME/.config/chillnotch-dynamic/modules/cpu-temp.sh"
+   chown -R "${SUDO_USER:-$USER}:${SUDO_USER:-$USER}" "$REAL_HOME/.config/chillnotch-dynamic/modules/cpu-temp.sh"
 fi
 
 # cleaning build files
@@ -238,11 +238,11 @@ info "Cleaning up build files"
 rm -rf build
 
 
-echo -e "\nRun the command '${GREEN}chillpill-shell${NC}' to start now."
-echo -e "or open '${GREEN}CP-Shell${NC}' through your app launcher."
+echo -e "\nRun the command '${GREEN}chillnotch-dynamic${NC}' to start now."
+echo -e "or open '${GREEN}ChillNotch-Dynamic${NC}' through your app launcher."
 
 # if needed backend build, that probably (partially) means a new user, so only show auto-run command paste code to them
 if $needs_build; then
    echo -e "\nTo auto-run at every startup, paste this code in your ${BLUE_BG} ${BLACK}~/.config/hypr/hyprland.lua ${NC} config:"
-   echo -e "${BLUE}hl.on(\"hyprland.start\", function()\n   hl.exec_cmd(\"chillpill-shell\")\nend)${NC}\n"
+   echo -e "${BLUE}hl.on(\"hyprland.start\", function()\n   hl.exec_cmd(\"chillnotch-dynamic\")\nend)${NC}\n"
 fi

@@ -1,5 +1,5 @@
 {
-  description = "chillpill-shell";
+  description = "chillnotch-dynamic";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -13,6 +13,6 @@
     in {
       packages.${system}.default = pkgs.callPackage ./default.nix { };
 
-      homeManagerModules.default = import ./modules/chillpill-shell.nix;
+      homeManagerModules.default = import ./modules/chillnotch-dynamic.nix;
     };
 }

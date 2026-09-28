@@ -50,7 +50,7 @@ nusgmon = pkgs.stdenv.mkDerivation {
    ];
 in
 pkgs.stdenv.mkDerivation rec {
-  pname = "chillpill-shell";
+  pname = "chillnotch-dynamic";
   version = "0.1.0";
 
   src = ./.;
@@ -78,53 +78,53 @@ pkgs.stdenv.mkDerivation rec {
 
     cmake --install .
 
-    install -Dm755 $src/launcher.sh $out/bin/chillpill-shell
-    substituteInPlace $out/bin/chillpill-shell \
-      --replace '/usr/share/chillpill-shell' "$out/share/chillpill-shell" \
-      --replace '$HOME/.config/quickshell/chillpill-shell/IslandBackend' "$out/lib/qt6/qml/IslandBackend"
+    install -Dm755 $src/launcher.sh $out/bin/chillnotch-dynamic
+    substituteInPlace $out/bin/chillnotch-dynamic \
+      --replace '/usr/share/chillnotch-dynamic' "$out/share/chillnotch-dynamic" \
+      --replace '$HOME/.config/quickshell/chillnotch-dynamic/IslandBackend' "$out/lib/qt6/qml/IslandBackend"
 
-    cat > $out/bin/chillpill-shell-ipc <<'WRAPPER'
+    cat > $out/bin/chillnotch-dynamic-ipc <<'WRAPPER'
   #!/usr/bin/env bash
   exec REPLACE_QS ipc -p REPLACE_CONFIG_PATH "$@"
   WRAPPER
-    chmod +x $out/bin/chillpill-shell-ipc
-    substituteInPlace $out/bin/chillpill-shell-ipc \
+    chmod +x $out/bin/chillnotch-dynamic-ipc
+    substituteInPlace $out/bin/chillnotch-dynamic-ipc \
       --replace REPLACE_QS "${pkgs.quickshell}/bin/qs" \
-      --replace REPLACE_CONFIG_PATH "$out/share/chillpill-shell"
+      --replace REPLACE_CONFIG_PATH "$out/share/chillnotch-dynamic"
 
-    mkdir -p $out/share/chillpill-shell
-    cp -r $src/qml/*   $out/share/chillpill-shell/
-    cp -r $src/share   $out/share/chillpill-shell/
-    cp -r $src/scripts $out/share/chillpill-shell/
-    install -Dm644 $src/config.jsonc $out/share/chillpill-shell/config.jsonc.example
+    mkdir -p $out/share/chillnotch-dynamic
+    cp -r $src/qml/*   $out/share/chillnotch-dynamic/
+    cp -r $src/share   $out/share/chillnotch-dynamic/
+    cp -r $src/scripts $out/share/chillnotch-dynamic/
+    install -Dm644 $src/config.jsonc $out/share/chillnotch-dynamic/config.jsonc.example
 
-    chmod +x $out/share/chillpill-shell/scripts/*
-    PATH="${scriptsPython}/bin:$PATH" patchShebangs $out/share/chillpill-shell/scripts
+    chmod +x $out/share/chillnotch-dynamic/scripts/*
+    PATH="${scriptsPython}/bin:$PATH" patchShebangs $out/share/chillnotch-dynamic/scripts
 
-    grep -rl '/usr/share/chillpill-shell' $out/share/chillpill-shell | while read -r f; do
-      substituteInPlace "$f" --replace '/usr/share/chillpill-shell' "$out/share/chillpill-shell"
+    grep -rl '/usr/share/chillnotch-dynamic' $out/share/chillnotch-dynamic | while read -r f; do
+      substituteInPlace "$f" --replace '/usr/share/chillnotch-dynamic' "$out/share/chillnotch-dynamic"
     done
 
-    install -Dm644 $src/chillpill.desktop $out/share/applications/chillpill.desktop
-    substituteInPlace $out/share/applications/chillpill.desktop \
-      --replace 'Exec=chillpill-shell' "Exec=$out/bin/chillpill-shell"
+    install -Dm644 $src/chillnotch-dynamic.desktop $out/share/applications/chillnotch-dynamic.desktop
+    substituteInPlace $out/share/applications/chillnotch-dynamic.desktop \
+      --replace 'Exec=chillnotch-dynamic' "Exec=$out/bin/chillnotch-dynamic"
 
     runHook postInstall
   '';
 
   postFixup = ''
-    wrapProgram $out/bin/chillpill-shell \
-      --set QML_IMPORT_PATH "$out/share/chillpill-shell:$out/lib/qt6/qml:${qmlImportPath}" \
+    wrapProgram $out/bin/chillnotch-dynamic \
+      --set QML_IMPORT_PATH "$out/share/chillnotch-dynamic:$out/lib/qt6/qml:${qmlImportPath}" \
       --set QT_PLUGIN_PATH "${qtPluginPath}" \
       --set LD_LIBRARY_PATH "$out/lib/qt6/qml/IslandBackend" \
       --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
   '';
 
   meta = with pkgs.lib; {
-    description = "ChillPill (Wayland bar) fork - chillpill-shell";
-    homepage = "https://github.com/PinguinAdvokat/chillpill-shell";
+    description = "ChillNotch (Wayland bar) fork - chillnotch-dynamic";
+    homepage = "https://github.com/PinguinAdvokat/chillnotch-dynamic";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    mainProgram = "chillpill-shell";
+    mainProgram = "chillnotch-dynamic";
   };
 }

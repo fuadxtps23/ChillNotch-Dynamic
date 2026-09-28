@@ -3,13 +3,13 @@
 with lib;
 
 let
-  cfg = config.programs.chillpill-shell;
+  cfg = config.programs.chillnotch-dynamic;
 
   jsonFormat = pkgs.formats.json { };
 
   rawDefaultsFile = ../config.jsonc;
 
-  strictDefaultsJson = pkgs.runCommand "chillpill-shell-default-settings.json" { } ''
+  strictDefaultsJson = pkgs.runCommand "chillnotch-dynamic-default-settings.json" { } ''
     ${pkgs.gnused}/bin/sed -E 's/,([[:space:]]*[}\]])/\1/g' ${rawDefaultsFile} > $out
   '';
 
@@ -20,13 +20,13 @@ let
   configFile = jsonFormat.generate "config.jsonc" mergedSettings;
 in
 {
-  options.programs.chillpill-shell = {
-    enable = mkEnableOption "chillpill-shell (quickshell-based Wayland bar)";
+  options.programs.chillnotch-dynamic = {
+    enable = mkEnableOption "chillnotch-dynamic (quickshell-based Wayland bar)";
 
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ../default.nix { };
-      description = "Package chillpill-shell for use.";
+      description = "Package chillnotch-dynamic for use.";
     };
 
     settings = mkOption {
@@ -47,6 +47,6 @@ in
 
   config = mkIf cfg.enable {
     home.packages = [ cfg.package ];
-    xdg.configFile."chillpill-shell/config.jsonc".source = configFile;
+    xdg.configFile."chillnotch-dynamic/config.jsonc".source = configFile;
   };
 }

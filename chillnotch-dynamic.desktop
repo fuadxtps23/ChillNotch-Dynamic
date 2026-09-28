@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ChillNotch-Dynamic
+GenericName=ChillNotch-Dynamic
+Comment=Feature rich dynamic pill bar for Hyprland
+Icon=/usr/share/chillnotch-dynamic/share/logo.png
+Exec=/usr/local/bin/chillnotch-dynamic
+Terminal=false
+Categories=System;Utility;

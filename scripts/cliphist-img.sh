@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TMP_DIR="$HOME/.cache/chillpill-shell/cliphist-imgs"
+TMP_DIR="$HOME/.cache/chillnotch-dynamic/cliphist-imgs"
 mkdir -p "$TMP_DIR"
 
 if [[ "$1" == "delete" && -n "$2" && -n "$3" ]]; then

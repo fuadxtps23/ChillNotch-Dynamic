@@ -1,9 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
 import IslandBackend
 
-RowLayout {
+ColumnLayout {
   id: root
+  spacing: 8 * root.dpi
 
   readonly property real dpi: Config.dpiScale
 
@@ -28,9 +31,80 @@ RowLayout {
   anchors.leftMargin: 3 * dpi
   anchors.rightMargin: 5 * dpi
 
-  onControlCenterOpenChanged: {
-    if (!controlCenterOpen) root.wifiPanelOpened = false; root.btPanelOpened = false
+  // keyboard (wvkbd on-screen keyboard)
+  property bool oskVisible: false
+  // idle inhibitor
+  property bool inhibitorActive: false
+  // night light (hyprsunset)
+  property bool nightlightOn: false
+  property int nightTemp: 5300
+
+  function toggleOsk() {
+    if (oskVisible) {
+      Quickshell.execDetached(["pkill", "-USR1", "-x", "wvkbd-mobintl"])
+      oskVisible = false
+    } else {
+      // start it (hidden) if not already running, then show
+      Quickshell.execDetached(["/bin/sh", "-c",
+        "pgrep -x wvkbd-mobintl >/dev/null 2>&1 || (wvkbd-mobintl --hidden -L 280 &)"])
+      Quickshell.execDetached(["pkill", "-USR2", "-x", "wvkbd-mobintl"])
+      oskVisible = true
+    }
   }
+
+  function toggleInhibitor() {
+    inhibitorActive = !inhibitorActive
+    if (inhibitorActive)
+      Quickshell.execDetached(["systemd-inhibit", "--what=idle:handle-lid-switch",
+        "--mode=block", "/bin/sh", "-c", "sleep infinity"])
+    else
+      Quickshell.execDetached(["pkill", "-f", "systemd-inhibit.*idle"])
+  }
+
+  function startNightlight() {
+    Quickshell.execDetached(["/bin/sh", "-c",
+      `if pgrep -x hyprsunset >/dev/null 2>&1; then hyprctl hyprsunset temperature ${nightTemp} >/dev/null 2>&1; else nohup hyprsunset --temperature ${nightTemp} >/dev/null 2>&1 & fi`])
+  }
+
+  function stopNightlight() {
+    Quickshell.execDetached(["/bin/sh", "-c",
+      "hyprctl hyprsunset identity >/dev/null 2>&1; pkill -x hyprsunset"])
+  }
+
+  function setNightTemp(t) {
+    nightTemp = Math.max(2500, Math.min(6500, t))
+    nightTempTimer.restart()
+  }
+
+  Timer { id: nightTempTimer; interval: 500; onTriggered: if (root.nightlightOn) root.startNightlight() }
+
+  // real state checks (running processes) so stale local state never lingers
+  Process {
+    id: nlProc
+    command: ["pgrep", "-x", "hyprsunset"]
+    running: false
+    stdout: StdioCollector { onStreamFinished: root.nightlightOn = text.trim().length > 0 }
+  }
+  Process {
+    id: inhProc
+    command: ["pgrep", "-f", "systemd-inhibit.*idle"]
+    running: false
+    stdout: StdioCollector { onStreamFinished: root.inhibitorActive = text.trim().length > 0 }
+  }
+
+  onControlCenterOpenChanged: {
+    if (!controlCenterOpen) { root.wifiPanelOpened = false; root.btPanelOpened = false }
+    else { nlProc.running = true; inhProc.running = true; mirrorProc.running = true }
+  }
+
+  onNotificationPopupChanged: {
+    if (root.notificationPopup) root.wifiPanelOpened = false; root.btPanelOpened = false
+  }
+
+      RowLayout {
+        id: buttonRow
+        Layout.fillWidth: true
+        spacing: 6 * root.dpi
 
   // wifi
   Rectangle {
@@ -85,11 +159,6 @@ RowLayout {
     anchorY: wifiBtn.mapToGlobal(0, 0).y
   }
 
-  onNotificationPopupChanged: {
-    if (root.notificationPopup) root.wifiPanelOpened = false; root.btPanelOpened = false
-  }
-
-  // silent notifications
   Rectangle {
     id: dndBtn
     implicitWidth: root.buttonWidth
@@ -334,5 +403,197 @@ RowLayout {
     visible: root.btPanelOpened
     anchorX: root.mapToGlobal(root.width, 0).x + (29 * root.dpi)
     anchorY: btBtn.mapToGlobal(0, 0).y
+  }
+  } // buttonRow
+
+  // row 2: keyboard, inhibitor, night light (ported from FunShell)
+  RowLayout {
+    id: sysRow
+    Layout.fillWidth: true
+    spacing: 6 * root.dpi
+    visible: root.controlCenterOpen && !root.mediaAutoOpened
+
+    // keyboard toggle (wvkbd)
+    Rectangle {
+      id: kbBtn
+      Layout.fillWidth: true
+      Layout.preferredHeight: root.buttonHeight
+      radius: root.buttonRadius
+      color: root.oskVisible
+        ? (kbHover.hovered ? Qt.lighter("#212529", 1.2) : "#212529")
+        : (kbHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: kbMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      RowLayout {
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          text: String.fromCodePoint(0xf11c)
+          color: root.oskVisible ? "#4282e9" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: "Keyboard"
+          color: root.oskVisible ? Theme.fg : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+      HoverHandler { id: kbHover }
+      MouseArea {
+        id: kbMouse
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggleOsk()
+      }
+    }
+
+    // idle inhibitor
+    Rectangle {
+      id: inhBtn
+      Layout.fillWidth: true
+      Layout.preferredHeight: root.buttonHeight
+      radius: root.buttonRadius
+      color: root.inhibitorActive
+        ? (inhHover.hovered ? Qt.lighter("#262626", 1.2) : "#262626")
+        : (inhHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: inhMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      RowLayout {
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          text: "󰈈"
+          color: root.inhibitorActive ? "#ff922b" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: "Inhibit"
+          color: root.inhibitorActive ? Theme.fg : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+      HoverHandler { id: inhHover }
+      MouseArea {
+        id: inhMouse
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.toggleInhibitor()
+      }
+    }
+
+    // night light toggle
+    Rectangle {
+      id: nlBtn
+      Layout.fillWidth: true
+      Layout.preferredHeight: root.buttonHeight
+      radius: root.buttonRadius
+      color: root.nightlightOn
+        ? (nlHover.hovered ? Qt.lighter("#262626", 1.2) : "#262626")
+        : (nlHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: nlMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      RowLayout {
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          text: "\uf186"
+          color: root.nightlightOn ? "#ff922b" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: root.nightlightOn ? root.nightTemp + "K" : "Night"
+          color: root.nightlightOn ? Theme.fg : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+      HoverHandler { id: nlHover }
+      MouseArea {
+        id: nlMouse
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+          root.nightlightOn = !root.nightlightOn
+          if (root.nightlightOn) root.startNightlight()
+          else root.stopNightlight()
+        }
+      }
+    }
+
+    // screen mirror (from FunShell MirrorScreen.qml): mirrors HDMI-A-1 onto eDP-1
+    Rectangle {
+        id: mirrorBtn
+        Layout.fillWidth: true
+        Layout.preferredHeight: root.buttonHeight
+        radius: root.buttonRadius
+        property bool hdmiConnected: false
+        property bool mirrorActive: false
+        color: mirrorBtn.mirrorActive
+          ? (mirrorHover.hovered ? Qt.lighter("#262626", 1.2) : "#262626")
+          : (mirrorHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+        scale: mirrorMouse.pressed ? 0.93 : 1.0
+        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+        opacity: hdmiConnected ? 1.0 : 0.45
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+        RowLayout {
+          anchors.centerIn: parent
+          spacing: 5 * root.dpi
+          Text {
+            text: mirrorBtn.mirrorActive ? String.fromCodePoint(0xf0119)
+                : mirrorBtn.hdmiConnected ? String.fromCodePoint(0xf0118)
+                : String.fromCodePoint(0xf078a)
+            color: mirrorBtn.mirrorActive ? "#4282e9" : root.buttonFgOff
+            font { family: Theme.nerdFontFamily; pixelSize: 13 }
+          }
+          Text {
+            text: "Mirror"
+            color: mirrorBtn.mirrorActive ? Theme.fg : root.buttonFgOff
+            font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+          }
+        }
+        HoverHandler { id: mirrorHover }
+        MouseArea {
+          id: mirrorMouse
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            if (!mirrorBtn.hdmiConnected) return
+            if (mirrorBtn.mirrorActive)
+              Quickshell.execDetached(["hyprctl", "reload"])
+            else
+              Quickshell.execDetached(["hyprctl", "eval",
+                'hl.monitor({ output = "HDMI-A-1", mode = "preferred", position = "auto", scale = 1, mirror = "eDP-1" })'])
+            mirrorStatusTimer.restart()
+          }
+        }
+
+        // Hyprland applies monitor changes async - re-check shortly after
+        Timer { id: mirrorStatusTimer; interval: 800; onTriggered: mirrorProc.running = true }
+
+        Process {
+          id: mirrorProc
+          command: ["hyprctl", "-j", "monitors", "all"]
+          running: false
+          stdout: StdioCollector {
+            onStreamFinished: {
+              try {
+                const mons = JSON.parse(text)
+                let hdmi = null
+                for (const m of mons) { if (m.name === "HDMI-A-1") { hdmi = m; break } }
+                mirrorBtn.hdmiConnected = hdmi !== null && !hdmi.disabled
+                mirrorBtn.mirrorActive = hdmi !== null && hdmi.mirrorOf !== "none"
+              } catch (e) {}
+            }
+          }
+        }
+        Component.onCompleted: mirrorProc.running = true
+    }
   }
 }

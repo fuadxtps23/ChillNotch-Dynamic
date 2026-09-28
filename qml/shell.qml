@@ -1,3 +1,4 @@
+//@ pragma UseQApplication
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
@@ -7,7 +8,9 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Widgets
 import Quickshell.Services.UPower
+import Quickshell.Services.Pipewire
 import Quickshell.Services.Notifications
+import QtQuick.Shapes
 
 ShellRoot {
   id: shellRoot
@@ -97,7 +100,10 @@ ShellRoot {
 
   PanelWindow {
     id: panelWindow
-    WlrLayershell.layer: WlrLayershell.Top
+    // overlay layer while the OSD or a notification is up, so the pill
+    // floats above fullscreen windows; back to top layer afterwards
+    WlrLayershell.layer: (box.activeOsd !== "" || notificationModule.active)
+      ? WlrLayershell.Overlay : WlrLayershell.Top
     WlrLayershell.keyboardFocus: (box.cliphistOpen || box.appLauncher || box.wallpaperSwitcherOpen || box.powerMenu) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     implicitHeight: Math.max(885 * scale, calendarPopup.visible ? calendarPopup.y + calendarPopup.height : 0)
     onScreenChanged: console.log("dpi:", screen.devicePixelRatio)
@@ -109,8 +115,7 @@ ShellRoot {
       right: true
     }
 
-    // reserve top space only while the pill is shown
-    margins.top: box.revealed ? Config.pillTopMargin : 0
+    margins.top: 0
     exclusiveZone: box.revealed ? Config.pillBottomMargin : 0
     color: "transparent"
 
@@ -127,6 +132,14 @@ ShellRoot {
         x: 0; y: 0
         width: (Config.pillOnHover && !box.revealed) ? Math.ceil(panelWindow.width) : 0
         height: (Config.pillOnHover && !box.revealed) ? Math.ceil(hoverRevealAreaItem.height) : 0
+      }
+      // while a widget is open the whole window catches clicks, so a
+      // click outside the pill dismisses it (FunShell-style)
+      Region {
+        intersection: Intersection.Combine
+        x: 0; y: 0
+        width: box.anyWidgetOpen ? Math.ceil(panelWindow.width) : 0
+        height: box.anyWidgetOpen ? Math.ceil(panelWindow.height) : 0
       }
       Region {
         intersection: Intersection.Combine
@@ -150,11 +163,11 @@ ShellRoot {
       id: hoverRevealAreaItem
       anchors {
         top: parent.top
-        topMargin: -Math.round(Config.pillTopMargin)
+        topMargin: 0
         left: parent.left
         right: parent.right
       }
-      height: Math.max(box.implicitHeight + Config.pillTopMargin + 8, 48)
+      height: Math.max(box.implicitHeight + 8, 48)
 
       HoverHandler {
         id: revealHover
@@ -169,6 +182,58 @@ ShellRoot {
       id: hidePillTimer
       interval: 250
       onTriggered: shellRoot.pillHoverActive = false
+    }
+
+    // Notch background via custom path (Gemini-style): sharp tips at the
+    // top corners flush with the screen edge, concave shoulder curving
+    // inward, straight sides, rounded bottom corners.
+    // Sibling of box (not child) so box.clip can hide content overflow
+    // during height animations without cutting the flared tips.
+    Shape {
+      id: notchShape
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      z: -1 // behind box and all content
+      layer.enabled: true
+      layer.samples: 16 // multisample antialiasing on the path edges
+      readonly property real r: Math.min(box.radius, box.width / 2, box.height / 2)
+      // body spans the full box; shoulders/tips flare out by r on each side
+      width: box.width + 2 * r
+      height: box.height
+      opacity: box.opacity
+      visible: box.visible
+      scale: box.scale
+      transformOrigin: Item.Top
+
+      ShapePath {
+        fillColor: "#000000"
+        strokeColor: "transparent"
+
+        startX: 0
+        startY: 0
+
+        PathSvg {
+          // sharp tip at (0,0), concave shoulder to (r,r), down the left
+          // side, rounded bottom corners, back up the right side
+          path: "M 0 0 " +
+                "Q " + notchShape.r + " 0, " + notchShape.r + " " + notchShape.r + " " +
+                "L " + notchShape.r + " " + (notchShape.height - notchShape.r) + " " +
+                "Q " + notchShape.r + " " + notchShape.height + ", " + (notchShape.r * 2) + " " + notchShape.height + " " +
+                "L " + (notchShape.width - notchShape.r * 2) + " " + notchShape.height + " " +
+                "Q " + (notchShape.width - notchShape.r) + " " + notchShape.height + ", " + (notchShape.width - notchShape.r) + " " + (notchShape.height - notchShape.r) + " " +
+                "L " + (notchShape.width - notchShape.r) + " " + notchShape.r + " " +
+                "Q " + (notchShape.width - notchShape.r) + " 0, " + notchShape.width + " 0 " +
+                "Z"
+        }
+      }
+    }
+
+    // click outside the pill closes the open widget; sits behind box so
+    // clicks on the pill itself keep their normal behaviour
+    MouseArea {
+      anchors.fill: parent
+      visible: box.anyWidgetOpen
+      onClicked: box.closeAllWidgets()
     }
 
     // main dynamic pill bar
@@ -194,9 +259,12 @@ ShellRoot {
       }
 
       visible: opacity > 0
+      // clip content to the animated box so widget rows never spill onto
+      // the wallpaper while the panel is still growing/shrinking
       clip: true
 
       property var volumeModule: null
+      property var micModule: null
       property var networkModule: null
       property var bluetoothModule: null
       property var clockModule: clock
@@ -216,6 +284,24 @@ ShellRoot {
       property bool wallpaperSwitcherOpen: false
       property bool cliphistPreviewing: false
       property bool powerMenu: false
+
+      // any widget/menu open on the panel (used for click-outside-to-close)
+      readonly property bool anyWidgetOpen: controlCenter || miniDashboard
+        || cliphistOpen || appLauncher || wallpaperSwitcherOpen || powerMenu
+        || calendarPopup.shown
+        || (weatherPopupLoader.item ? weatherPopupLoader.item.shown : false)
+
+      function closeAllWidgets() {
+        controlCenter = false
+        miniDashboard = false
+        cliphistOpen = false
+        appLauncher = false
+        wallpaperSwitcherOpen = false
+        powerMenu = false
+        powerMenuInitialAction = ""
+        calendarPopup.shown = false
+        if (weatherPopupLoader.item) weatherPopupLoader.item.shown = false
+      }
       property string powerMenuInitialAction: ""
 
       property var battery: UPower.displayDevice
@@ -259,6 +345,52 @@ ShellRoot {
 
       Process { id: brightnessSetProc; running: false }
 
+      // ---- caps/num lock OSD (ported from FunShell OsdMonitor.qml) ----
+      // Hyprland exposes no LED event, so poll hyprctl -j devices and diff.
+      property bool kbLockReady: false
+      property var kbLedState: ({})
+      property string kbLockLabel: ""
+      property bool kbLockOn: false
+
+      Process {
+        id: kbLedProc
+        command: ["hyprctl", "-j", "devices"]
+        running: true
+        stdout: StdioCollector { onStreamFinished: box.parseLocks(text) }
+      }
+      Timer {
+        interval: 200
+        running: true
+        repeat: true
+        onTriggered: kbLedProc.running = true
+      }
+
+      function parseLocks(raw) {
+        try {
+          const obj = JSON.parse(raw.trim())
+          for (const kb of obj.keyboards) {
+            const prev = kbLedState[kb.name]
+            const caps = !!kb.capsLock
+            const num = !!kb.numLock
+            if (!kbLockReady) { kbLedState[kb.name] = { caps, num }; continue }
+            if (prev && (prev.caps !== caps || prev.num !== num)) {
+              kbLedState[kb.name] = { caps, num }
+              if (prev.caps !== caps) showLock("CAPS LOCK", caps)
+              if (prev.num !== num) showLock("NUM LOCK", num)
+            } else if (!prev) { kbLedState[kb.name] = { caps, num } }
+          }
+          if (!kbLockReady) kbLockReady = true
+        } catch (e) {}
+      }
+
+      function showLock(label, on) {
+        kbLockLabel = label
+        kbLockOn = on
+        activeOsd = "lock"
+        osdHideTimer.interval = Config.osdDuration
+        osdHideTimer.restart()
+      }
+
       Timer {
         id: osdHideTimer
         onTriggered: box.activeOsd = ""
@@ -283,38 +415,59 @@ ShellRoot {
       readonly property real dpi: Config.dpiScale
 
       readonly property real baseWidth: activeOsd === "battery" ? osdWidth
-                     : activeOsd === "timer" ? osdWidth
-                     : activeOsd === "volume" ? osdWidth
-                     : activeOsd === "brightness" ? osdWidth
-                     : (notificationModule.active && !notifFullscreenMode) ? 320
-                     : powerMenu ? 342
-                     : controlCenter ? 390
-                     : appLauncher ? 378
-                     : miniDashboard ? 420
-                     : (cliphistOpen && cliphistPreviewing) ? 400
-                     : wallpaperSwitcherOpen ? 600
-                     : cliphistOpen ? 460
-                     : mediaAutoOpened ? 340
-                     : row.implicitWidth + (12 * Config.pillScale) + (Config.pillOnHover || !hovered ? 56 : 68) * Config.pillScale
+                    : activeOsd === "timer" ? osdWidth
+                    : (activeOsd === "volume" || activeOsd === "brightness"
+                       || activeOsd === "lock" || activeOsd === "mic") ? osdWidth
+                    : (notificationModule.active && !notifFullscreenMode) ? 320
+                    : powerMenu ? 342
+                    : controlCenter ? 390
+                    : appLauncher ? 378
+                    : miniDashboard ? 420
+                    : (cliphistOpen && cliphistPreviewing) ? 400
+                    : wallpaperSwitcherOpen ? 600
+                    : cliphistOpen ? 460
+                    : mediaAutoOpened ? 340
+                    : pillWidth
+
+      // normal pill dimensions (also used by the volume/brightness OSD so
+      // those pop at the exact size of the regular pill). row.implicitWidth
+      // collapses to 0 while the row is hidden (during an OSD/panel), so the
+      // raw row size is cached and only ever overwritten with a valid value.
+      property real cachedRowW: 0
+      property real cachedRowH: 0
+      readonly property real pillWidth: cachedRowW + (12 * Config.pillScale) + (Config.pillOnHover || !hovered ? 56 : 68) * Config.pillScale
+      readonly property real pillHeight: (cachedRowH * Config.pillScale) + 10
+      function refreshRowCache() {
+        if (row.implicitWidth > 1 && row.implicitHeight > 1) {
+          cachedRowW = row.implicitWidth
+          cachedRowH = row.implicitHeight
+        }
+      }
+      Connections {
+        target: row
+        function onImplicitWidthChanged() { box.refreshRowCache() }
+        function onImplicitHeightChanged() { box.refreshRowCache() }
+      }
+      Component.onCompleted: refreshRowCache()
 
       readonly property real baseHeight: activeOsd === "battery" ? osdHeight
                   : activeOsd === "timer" ? osdHeight
-                  : activeOsd === "volume" ? osdHeight
-                  : activeOsd === "brightness" ? osdHeight
+                  : (activeOsd === "volume" || activeOsd === "brightness"
+                     || activeOsd === "lock" || activeOsd === "mic") ? pillHeight
                   : (notificationModule.active && !notifFullscreenMode) ? 52
                   : powerMenu ? 100
                   : controlCenter && mprisModule.hasPlayer
-                      ? (240 + notifBump)
+                      ? (303 + notifBump + (ccButtons.nightlightOn ? 20 : 0))
                   : controlCenter
-                      ? (118 + notifBump)
+                      ? (181 + notifBump + (ccButtons.nightlightOn ? 20 : 0))
                   : (cliphistOpen && cliphistPreviewing) ? 380
-                  : miniDashboard ? 155
+                  : miniDashboard ? 190
                   : appLauncher
                       ? (appLauncherLoader.item ? appLauncherLoader.item.height + 23 : 410)
                   : wallpaperSwitcherOpen ? 308
                   : cliphistOpen ? 282
                   : mediaAutoOpened ? 90
-                  : (row.implicitHeight * Config.pillScale) + 10
+                  : pillHeight
 
       readonly property real baseRadius: notificationModule.active ? 99
         : cliphistOpen && cliphistPreviewing ? 33
@@ -338,7 +491,9 @@ ShellRoot {
           NumberAnimation { duration: 225; easing.type: Easing.OutExpo }
       }
 
-      color: controlCenter ? Theme.bgD1 : bg
+      // visible background is drawn by the notch Shape below; keep the
+      // rectangle transparent so only the custom path shows
+      color: "transparent"
 
       onMiniDashboardChanged: {
           if (!box.miniDashboard) {
@@ -451,6 +606,17 @@ ShellRoot {
           }
       }
 
+      // mic mute OSD — fires on any source of a toggle (laptop key,
+      // pill click, control center slider) since it watches pipewire
+      readonly property var micSrc: Pipewire.defaultAudioSource
+      readonly property bool micMuted: micSrc && micSrc.ready && micSrc.audio.muted
+      PwObjectTracker { objects: [box.micSrc] }
+      onMicMutedChanged: {
+        if (!box.controlCenter) box.activeOsd = "mic"
+        osdHideTimer.interval = Config.osdDuration
+        osdHideTimer.restart()
+      }
+
       // bar modules and their tooltip
       PillBarModules { id: row }
       TooltipPopup { id: tooltipPopup }
@@ -464,6 +630,22 @@ ShellRoot {
           muted: box.volumeModule ? box.volumeModule.muted : false
           barWidth: box.volumeModule && box.volumeModule.mutedFg ? 80 : 90
           valueText: box.volumeModule ? (box.volumeModule.muted ? "muted" : box.volumeModule.intendedVol + "%") : ""
+      }
+
+      // mic mute
+      OsdBar {
+          active: box.activeOsd === "mic"
+          icon: box.micMuted ? String.fromCodePoint(0xf131) : String.fromCodePoint(0xf130)
+          iconColor: box.micMuted ? "#fb2a2a" : Theme.fg
+          muted: box.micMuted
+          mutedFg: "#fb2a2a"
+          percent: box.micSrc && box.micSrc.ready && !box.micMuted
+            ? box.micSrc.audio.volume : 0
+          barWidth: box.micMuted ? 0 : 90
+          spacing: 5
+          valueText: box.micMuted ? "muted"
+            : (box.micSrc && box.micSrc.ready
+               ? Math.round(box.micSrc.audio.volume * 100) + "%" : "")
       }
 
       // brightness
@@ -491,6 +673,16 @@ ShellRoot {
         icon: String.fromCodePoint(0xf1ad1)
         iconColor: "#5892f3"
         valueText: "Timer finished"
+        barWidth: 0
+        spacing: 5
+      }
+
+      // caps/num lock
+      OsdBar {
+        active: box.activeOsd === "lock"
+        icon: String.fromCodePoint(0xf023b)
+        iconColor: box.kbLockOn ? Theme.fg : Theme.fg4
+        valueText: box.kbLockLabel + (box.kbLockOn ? " ON" : " OFF")
         barWidth: 0
         spacing: 5
       }
@@ -718,6 +910,7 @@ ShellRoot {
 
         // control center buttons
         CcButtons {
+          id: ccButtons
           buttonWidth: box.ccButtonWidth
           buttonHeight: box.ccButtonHeight
           buttonRadius: box.ccButtonRadius
@@ -735,7 +928,7 @@ ShellRoot {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.topMargin: mprisModule.hasPlayer ? box.ccButtonHeight + 137 : 50
+          anchors.topMargin: mprisModule.hasPlayer ? box.ccButtonHeight + 180 : 93
           anchors.leftMargin: 15
           anchors.rightMargin: 2
 
@@ -761,6 +954,12 @@ ShellRoot {
             brightnessSetProc.command = ["brightnessctl", "set", pct + "%"]
             brightnessSetProc.running = false
             brightnessSetProc.running = true
+          }
+
+          nightlightOn: ccButtons.nightlightOn
+          nightTemp: ccButtons.nightTemp
+          onNightTempChangeRequested: (fraction) => {
+            ccButtons.setNightTemp(Math.round(2500 + fraction * 4000))
           }
         }
 
@@ -916,7 +1115,7 @@ ShellRoot {
           anchors.left: parent.left
           anchors.leftMargin: 5
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: 42
+          anchors.bottomMargin: 65
         }
 
         // data usage status
@@ -924,7 +1123,14 @@ ShellRoot {
           anchors.right: parent.right
           anchors.rightMargin: 4
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: 42
+          anchors.bottomMargin: 65
+        }
+
+        // tray apps (below the ip, centered)
+        MiniTray {
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.top: parent.top
+          anchors.topMargin: 102
         }
 
         // rectangle where poweroff, sleep etc. buttons placed
@@ -937,7 +1143,7 @@ ShellRoot {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.topMargin: 97
+          anchors.topMargin: 128
 
           RowLayout {
             anchors.left: parent.left
@@ -1253,7 +1459,7 @@ ShellRoot {
   // audio visualizer spectrum process
   Process {
     id: cavaProc
-    command: ["sh", "-c", "cava -p ~/.cache/chillpill-shell/cava.conf"]
+    command: ["sh", "-c", "cava -p ~/.cache/chillnotch-dynamic/cava.conf"]
     running: Config.showAudioVisuals && box.controlCenter && shellRoot.cavaAvailable
     stdout: SplitParser {
       splitMarker: "\n"

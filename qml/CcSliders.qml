@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Services.Pipewire
 
 Column {
   id: sliderColumnRoot
@@ -19,8 +21,19 @@ Column {
   property string brightnessIcon: ""
   property real brightnessPercent: 0  // 0-1
 
+  // mic (read directly from Pipewire default source)
+  readonly property var micSrc: Pipewire.defaultAudioSource
+  readonly property bool micReady: micSrc && micSrc.ready
+  readonly property bool micMuted: micReady ? micSrc.audio.muted : false
+  readonly property real micPercent: micReady ? Math.min(micSrc.audio.volume, 1.0) : 0
+  PwObjectTracker { objects: [sliderColumnRoot.micSrc] }
+
+  property bool nightlightOn: false
+  property real nightTemp: 5300  // 2500-6500
+
   signal volumeChangeRequested(real fraction)
   signal brightnessChangeRequested(real fraction)
+  signal nightTempChangeRequested(real fraction)
 
   Timer { id: brightnessThrottle; interval: 80; repeat: false }
 
@@ -96,6 +109,64 @@ Column {
     }
   }
 
+  // mic
+  RowLayout {
+    width: parent.width
+    spacing: 14
+
+    Text {
+      id: micIconText
+      text: sliderColumnRoot.micMuted || !sliderColumnRoot.micReady
+        ? String.fromCodePoint(0xf131) : String.fromCodePoint(0xf130)
+      color: (sliderColumnRoot.micMuted || !sliderColumnRoot.micReady) ? "#fb2a2a" : Theme.fg
+      font.family: Theme.nerdFontFamily
+      font.pixelSize: 13
+      Behavior on color { ColorAnimation { duration: 100 } }
+    }
+
+    Rectangle {
+      Layout.fillWidth: true
+      height: sliderColumnRoot.sliderHeight
+      radius: sliderColumnRoot.sliderRadius
+      color: Theme.bg5
+
+      Rectangle {
+        width: parent.width * sliderColumnRoot.micPercent
+        height: parent.height
+        radius: sliderColumnRoot.sliderRadius
+        color: sliderColumnRoot.sliderColor
+        Behavior on width {
+          SpringAnimation {
+            spring: 15.5
+            damping: 1.8
+            epsilon: 0.40
+          }
+        }
+      }
+      MouseArea {
+        anchors.fill: parent
+        anchors.topMargin: -sliderColumnRoot.sliderHitSlop
+        anchors.bottomMargin: -sliderColumnRoot.sliderHitSlop
+        onClicked: (mouse) => {
+          if (sliderColumnRoot.micReady)
+            sliderColumnRoot.micSrc.audio.volume = Math.max(0, Math.min(1, mouse.x / width))
+        }
+        onPositionChanged: (mouse) => {
+          if (pressed && sliderColumnRoot.micReady)
+            sliderColumnRoot.micSrc.audio.volume = Math.max(0, Math.min(1, mouse.x / width))
+        }
+      }
+    }
+    Text {
+      text: !sliderColumnRoot.micReady ? "-"
+        : (sliderColumnRoot.micMuted ? "muted" : Math.round(sliderColumnRoot.micSrc.audio.volume * 100) + "%")
+      color: Theme.fg
+      font.family: Theme.fontFamily
+      font.pixelSize: 10
+      Layout.minimumWidth: 35
+    }
+  }
+
   // brightness
   RowLayout {
     width: parent.width
@@ -166,6 +237,59 @@ Column {
           NumberAnimation { target: btVal; property: "scale"; to: 0.9; duration: 60; easing.type: Easing.OutQuad }
           NumberAnimation { target: btVal; property: "scale"; to: 1.0; duration: 120; easing.type: Easing.OutQuad }
       }
+    }
+  }
+
+  // night light temperature (only when night light is on)
+  RowLayout {
+    width: parent.width
+    spacing: 14
+    visible: sliderColumnRoot.nightlightOn
+
+    Text {
+      text: "\uf186"
+      color: "#ff922b"
+      font.family: Theme.nerdFontFamily
+      font.pixelSize: 13
+    }
+    Rectangle {
+      Layout.fillWidth: true
+      height: sliderColumnRoot.sliderHeight
+      radius: sliderColumnRoot.sliderRadius
+      color: Theme.bg5
+
+      Rectangle {
+        width: parent.width * Math.max(0, Math.min(1, (sliderColumnRoot.nightTemp - 2500) / 4000))
+        height: parent.height
+        radius: sliderColumnRoot.sliderRadius
+        color: "#ff922b"
+        Behavior on width {
+          SpringAnimation {
+            spring: 15.5
+            damping: 1.8
+            epsilon: 0.40
+          }
+        }
+      }
+      MouseArea {
+        anchors.fill: parent
+        anchors.topMargin: -sliderColumnRoot.sliderHitSlop
+        anchors.bottomMargin: -sliderColumnRoot.sliderHitSlop
+        onClicked: (mouse) => {
+          nightTempChangeRequested(Math.max(0, Math.min(1, mouse.x / width)))
+        }
+        onPositionChanged: (mouse) => {
+          if (pressed)
+            nightTempChangeRequested(Math.max(0, Math.min(1, mouse.x / width)))
+        }
+      }
+    }
+    Text {
+      text: Math.round(sliderColumnRoot.nightTemp) + "K"
+      color: Theme.fg
+      font.family: Theme.fontFamily
+      font.pixelSize: 10
+      Layout.minimumWidth: 35
     }
   }
 }

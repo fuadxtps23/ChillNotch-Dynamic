@@ -34,6 +34,8 @@ Rectangle {
     wallpaperPopup.selectedWallpaper = "file://" + path
     if (Config.customWallpaperScript.trim() === "") {
       Quickshell.execDetached(["awww", "img", "--transition-type", "random", path])
+      Quickshell.execDetached(["matugen", "--source-color-index", "0", "-t", "scheme-fidelity", "image", path])
+      Quickshell.execDetached(["ln", "-sf", path, "/home/notfuad/.config/hypr/current_wallpaper"])
     }
     else {
       let script = Config.customWallpaperScript
@@ -83,7 +85,7 @@ Rectangle {
   FolderListModel {
     id: wallpaperModel
     folder: "file://" + Config.wallpapersDir.replace("~", Quickshell.env("HOME"))
-    nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp"]
+    nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif"]
     showDirs: false
     caseSensitive: false
     sortField: FolderListModel.Name

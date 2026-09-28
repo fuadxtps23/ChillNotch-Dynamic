@@ -4,8 +4,8 @@ import QtQuick
 
 Singleton {
     // more darker (descending)
-    property string bg: "#161616"
-    property string bg1: "#212121"
+    property string bg: "#0f0f0f"
+    property string bg1: "#1a1a1a"
     property string bg2: "#232323"
     property string bg3: "#252525"
     property string bg4: "#282828"
@@ -15,8 +15,8 @@ Singleton {
     property string bg8: "#454545"
     property string bg9: "#505050"
 
-    property string bgD: "#141414"
-    property string bgD1: "#191919"
+    property string bgD: "#0d0d0d"
+    property string bgD1: "#121212"
 
     // more darker (ascending)
     property string fg: "#dadada"

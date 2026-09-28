@@ -6,7 +6,7 @@ Singleton {
   id: root
 
   FileView {
-    path: Quickshell.env("HOME") + "/.config/chillpill-shell/config.jsonc"
+    path: Quickshell.env("HOME") + "/.config/chillnotch-dynamic/config.jsonc"
     watchChanges: true
     onFileChanged: reload()
 
@@ -15,7 +15,6 @@ Singleton {
       id: adapter
       property string displayPicture: Quickshell.env("HOME") + "/.pfp.png"
       property string clockFormat: "hh:mm"
-      property int pillTopMargin: 9
       property int pillBottomMargin: 26
       property string textFontFamily: "Monocraft"
       property string nerdFontFamily: "JetBrainsMono Nerd Font Propo"
@@ -52,7 +51,6 @@ Singleton {
 
   readonly property alias displayPicture: adapter.displayPicture
   readonly property alias clockFormat: adapter.clockFormat
-  readonly property alias pillTopMargin: adapter.pillTopMargin
   readonly property alias pillBottomMargin: adapter.pillBottomMargin
   readonly property alias textFontFamily: adapter.textFontFamily
   readonly property alias nerdFontFamily: adapter.nerdFontFamily

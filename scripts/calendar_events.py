@@ -6,7 +6,7 @@ Usage:
    calendar_events.py <ISO_COUNTRY_CODE> <YEAR> <OUTPUT_PATH>
 
 Example:
-   calendar_events.py IN 2026 ~/.cache/chillpill-shell/holidays_IN_2026.json
+   calendar_events.py IN 2026 ~/.cache/chillnotch-dynamic/holidays_IN_2026.json
 
 Output JSON shape:
    { "YYYY-M-D": "Holiday name", ... }   (month/day unpadded, no leading zeros)
