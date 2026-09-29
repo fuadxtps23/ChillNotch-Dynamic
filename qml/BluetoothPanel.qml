@@ -4,27 +4,16 @@ import QtQuick
 import QtQuick.Layouts
 import IslandBackend
 
-PanelWindow {
+Item {
   id: btListWindow
 
   readonly property real dpi: Config.dpiScale
 
-  property real anchorX: 0
-  property real anchorY: 0
-
-  anchors.top: true
-  anchors.left: true
-  margins.top: anchorY
-  margins.left: anchorX
-
   // keyboard focus needed whenever the agent wants a PIN/passkey typed in
-  WlrLayershell.keyboardFocus: (BluetoothPairingAgent.requestActive && BluetoothPairingAgent.requestRequiresInput)
-                                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+  readonly property bool wantsKeyboardFocus: BluetoothPairingAgent.requestActive && BluetoothPairingAgent.requestRequiresInput
 
-  exclusionMode: ExclusionMode.Ignore
-  implicitWidth: 270 * dpi
-  implicitHeight: 348 * dpi
-  color: "transparent"
+  width: 245 * dpi
+  height: 308 * dpi
 
   onVisibleChanged: {
     if (visible && BluetoothController.enabled) BluetoothController.refreshDevices(true)
@@ -32,8 +21,6 @@ PanelWindow {
 
   Rectangle {
     anchors.fill: parent
-    anchors.topMargin: 40 * dpi
-    anchors.rightMargin: 32 * dpi
     color: Theme.bg
     radius: 26 * dpi
 

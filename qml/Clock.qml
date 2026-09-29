@@ -13,7 +13,7 @@ Text {
     path: {
       if (!Config.country || Config.country.trim() === "" || Config.country.toLowerCase() === "none") return ""
       const year = new Date().getFullYear()
-      return Quickshell.env("HOME") + "/.cache/chillnotch-dynamic/events_"
+      return Quickshell.env("HOME") + "/.cache/chillpill-shell/events_"
            + Config.country + "_" + year + ".json"
     }
     watchChanges: true

@@ -153,12 +153,6 @@ ColumnLayout {
     }
   }
 
-  WifiPanel {
-    visible: root.wifiPanelOpened
-    anchorX: root.mapToGlobal(root.width, 0).x - (600 * root.dpi) - (30 * root.dpi)
-    anchorY: wifiBtn.mapToGlobal(0, 0).y
-  }
-
   Rectangle {
     id: dndBtn
     implicitWidth: root.buttonWidth
@@ -399,11 +393,6 @@ ColumnLayout {
     }
   }
 
-  BluetoothPanel {
-    visible: root.btPanelOpened
-    anchorX: root.mapToGlobal(root.width, 0).x + (29 * root.dpi)
-    anchorY: btBtn.mapToGlobal(0, 0).y
-  }
   } // buttonRow
 
   // row 2: keyboard, inhibitor, night light (ported from FunShell)

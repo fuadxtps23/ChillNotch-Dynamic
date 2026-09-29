@@ -24,9 +24,13 @@ Item {
 
     Image {
       id: notifIcon
-      width: 23 * box.dpi
-      height: 23 * box.dpi
+      Layout.preferredWidth: 30 * box.dpi
+      Layout.preferredHeight: 30 * box.dpi
+      Layout.maximumWidth: 30 * box.dpi
+      Layout.maximumHeight: 30 * box.dpi
+      Layout.alignment: Qt.AlignVCenter
       fillMode: Image.PreserveAspectCrop
+      clip: true
       source: {
         if (root.notif && root.notif.image) return root.notif.image
         if (root.notif && root.notif.appIcon) {
@@ -36,7 +40,7 @@ Item {
         }
         return ""
       }
-      sourceSize: Qt.size(23 * box.dpi, 23 * box.dpi)
+      sourceSize: Qt.size(30 * box.dpi, 30 * box.dpi)
       visible: status === Image.Ready
     }
 

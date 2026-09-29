@@ -18,13 +18,17 @@ Rectangle {
   radius: 18 * box.dpi
   Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
   Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutExpo } }
+  // down/up entry like the other menus: slides out from behind the bar
+  property real slideY: shown ? 0 : -30 * box.dpi
+  Behavior on slideY { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+  transform: Translate { y: calendarPopup.slideY }
 
   onShownChanged: if (shown) holidayLoader.ensureLoaded()
 
   property bool holidaysEnabled: Config.country.trim() !== "" && Config.country.toLowerCase() !== "none"
   property bool fetchFailed: false
   property string cachePath: holidaysEnabled
-    ? `${Quickshell.env("HOME")}/.cache/chillnotch-dynamic/events_${Config.country}_${datetimeItem.viewYear}.json`
+    ? `${Quickshell.env("HOME")}/.cache/chillpill-shell/events_${Config.country}_${datetimeItem.viewYear}.json`
     : ""
 
   FileView {
@@ -45,7 +49,7 @@ Rectangle {
   Process {
     id: holidayFetcher
     command: [
-      "/usr/share/chillnotch-dynamic/scripts/calendar_events.py",
+      "/usr/share/chillpill-shell/scripts/calendar_events.py",
       Config.country,
       datetimeItem.viewYear.toString(),
       calendarPopup.cachePath

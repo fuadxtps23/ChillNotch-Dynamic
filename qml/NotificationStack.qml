@@ -149,6 +149,7 @@ Item {
           id: notifIcon
           width: 22
           height: 22
+          clip: true
           fillMode: Image.PreserveAspectFit
           asynchronous: false
           source: {

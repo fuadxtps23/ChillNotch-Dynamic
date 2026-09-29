@@ -104,7 +104,7 @@ ShellRoot {
     // floats above fullscreen windows; back to top layer afterwards
     WlrLayershell.layer: (box.activeOsd !== "" || notificationModule.active)
       ? WlrLayershell.Overlay : WlrLayershell.Top
-    WlrLayershell.keyboardFocus: (box.cliphistOpen || box.appLauncher || box.wallpaperSwitcherOpen || box.powerMenu) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (box.cliphistOpen || box.appLauncher || box.wallpaperSwitcherOpen || box.powerMenu || wifiPanel.passwordPromptVisible || btPanel.wantsKeyboardFocus) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     implicitHeight: Math.max(885 * scale, calendarPopup.visible ? calendarPopup.y + calendarPopup.height : 0)
     onScreenChanged: console.log("dpi:", screen.devicePixelRatio)
     property real scale: screen ? screen.devicePixelRatio : 1.0
@@ -193,6 +193,7 @@ ShellRoot {
       id: notchShape
       anchors.top: parent.top
       anchors.horizontalCenter: parent.horizontalCenter
+      anchors.horizontalCenterOffset: box.panelShift
       z: -1 // behind box and all content
       layer.enabled: true
       layer.samples: 16 // multisample antialiasing on the path edges
@@ -241,6 +242,12 @@ ShellRoot {
       id: box
       anchors.top: parent.top
       anchors.horizontalCenter: parent.horizontalCenter
+      // keep the control center centered on screen: box slides away by half
+      // the extra panel width while the panels hang off the CC content
+      property real panelShift: (controlCenter && ccButtons.wifiPanelOpened ? -127.5 : 0)
+                              + (controlCenter && ccButtons.btPanelOpened ? 127.5 : 0)
+      Behavior on panelShift { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+      anchors.horizontalCenterOffset: panelShift
       readonly property bool revealed: !Config.pillOnHover
         || shellRoot.pillHoverActive
         || controlCenter
@@ -408,6 +415,7 @@ ShellRoot {
           }
       }
 
+      readonly property bool ccPanelOpen: controlCenter && (ccButtons.wifiPanelOpened || ccButtons.btPanelOpened)
       readonly property int notifBump: notificationModule.notifications.length > 0
         ? Math.min(notificationStack.listContentHeight + 40, 130) : 0
 
@@ -420,7 +428,7 @@ ShellRoot {
                        || activeOsd === "lock" || activeOsd === "mic") ? osdWidth
                     : (notificationModule.active && !notifFullscreenMode) ? 320
                     : powerMenu ? 342
-                    : controlCenter ? 390
+                    : controlCenter ? (390 + (ccButtons.wifiPanelOpened ? 255 : 0) + (ccButtons.btPanelOpened ? 255 : 0))
                     : appLauncher ? 378
                     : miniDashboard ? 420
                     : (cliphistOpen && cliphistPreviewing) ? 400
@@ -457,9 +465,9 @@ ShellRoot {
                   : (notificationModule.active && !notifFullscreenMode) ? 52
                   : powerMenu ? 100
                   : controlCenter && mprisModule.hasPlayer
-                      ? (303 + notifBump + (ccButtons.nightlightOn ? 20 : 0))
+                      ? Math.max(303 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccPanelOpen ? 333 : 0)
                   : controlCenter
-                      ? (181 + notifBump + (ccButtons.nightlightOn ? 20 : 0))
+                      ? Math.max(181 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccPanelOpen ? 333 : 0)
                   : (cliphistOpen && cliphistPreviewing) ? 380
                   : miniDashboard ? 190
                   : appLauncher
@@ -892,16 +900,27 @@ ShellRoot {
 
       // control center opens on left click
       Item {
+        id: ccContent
         anchors.centerIn: parent
-        width: box.implicitWidth - 24
+        property real ccShift: (ccButtons.wifiPanelOpened ? 127.5 : 0) + (ccButtons.btPanelOpened ? -127.5 : 0)
+        Behavior on ccShift { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+        // down/up entry: content drops in from behind the notch on open,
+        // lifts back up on close (matches the other menus)
+        property real slideY: box.controlCenter ? 0 : -60
+        Behavior on slideY { NumberAnimation { duration: 500; easing.type: Easing.OutExpo } }
+        transform: Translate {
+          x: ccContent.ccShift
+          y: ccContent.slideY
+        }
+        width: Math.min(box.implicitWidth - 24, 366)
         opacity: box.controlCenter && box.activeOsd === "" && !notificationModule.active && !box.powerMenu ? 1 : 0
         visible: opacity > 0
-        height: box.controlCenter && box.activeOsd === "" ? box.implicitHeight - 25 : 0
+        height: Math.max(0, box.height - 25)
 
         Behavior on opacity {
           SequentialAnimation {
-            PauseAnimation { duration: box.controlCenter ? 15 : 0 }
-            NumberAnimation { duration: 150; easing.type: Easing.OutExpo }
+            PauseAnimation { duration: box.controlCenter ? 1 : 0 }
+            NumberAnimation { duration: 300; easing.type: Easing.OutExpo }
           }
         }
 
@@ -972,6 +991,39 @@ ShellRoot {
           notifMaxHeight: 98
           dpi: box.dpi
           controlCenterOpen: box.controlCenter
+        }
+
+        // wifi / bluetooth panels embedded in the control center (morphs wider)
+        WifiPanel {
+          id: wifiPanel
+          visible: box.controlCenter && box.activeOsd === ""
+          anchors.right: parent.left
+          anchors.rightMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          opacity: ccButtons.wifiPanelOpened ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          transform: Translate {
+            x: wifiPanel.wifiX
+            Behavior on x { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          }
+          property real wifiX: ccButtons.wifiPanelOpened ? 0 : 45
+          enabled: ccButtons.wifiPanelOpened
+        }
+
+        BluetoothPanel {
+          id: btPanel
+          visible: box.controlCenter && box.activeOsd === ""
+          anchors.left: parent.right
+          anchors.leftMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          opacity: ccButtons.btPanelOpened ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          transform: Translate {
+            x: btPanel.btX
+            Behavior on x { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          }
+          property real btX: ccButtons.btPanelOpened ? 0 : -45
+          enabled: ccButtons.btPanelOpened
         }
       }
 
@@ -1398,7 +1450,8 @@ ShellRoot {
 
       Image {
         id: cardIcon
-        width: 23; height: 23
+        width: 30; height: 30
+        clip: true
         fillMode: Image.PreserveAspectCrop
         source: {
           if (fsNotif.displayNotif && fsNotif.displayNotif.image) return fsNotif.displayNotif.image
@@ -1409,7 +1462,7 @@ ShellRoot {
           }
           return ""
         }
-        sourceSize: Qt.size(23 * box.dpi, 23 * box.dpi)
+        sourceSize: Qt.size(30 * box.dpi, 30 * box.dpi)
         visible: status === Image.Ready
       }
 
@@ -1459,7 +1512,7 @@ ShellRoot {
   // audio visualizer spectrum process
   Process {
     id: cavaProc
-    command: ["sh", "-c", "cava -p ~/.cache/chillnotch-dynamic/cava.conf"]
+    command: ["sh", "-c", "cava -p ~/.cache/chillpill-shell/cava.conf"]
     running: Config.showAudioVisuals && box.controlCenter && shellRoot.cavaAvailable
     stdout: SplitParser {
       splitMarker: "\n"
