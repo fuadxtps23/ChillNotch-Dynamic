@@ -20,7 +20,7 @@ Rectangle {
   Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutExpo } }
   // down/up entry like the other menus: slides out from behind the bar
   property real slideY: shown ? 0 : -30 * box.dpi
-  Behavior on slideY { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+  Behavior on slideY { NumberAnimation { duration: 225; easing.type: Easing.InOutBack } }
   transform: Translate { y: calendarPopup.slideY }
 
   onShownChanged: if (shown) holidayLoader.ensureLoaded()

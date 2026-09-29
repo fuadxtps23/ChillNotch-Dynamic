@@ -496,7 +496,7 @@ ShellRoot {
       transformOrigin: Item.Top
 
       Behavior on radius {
-          NumberAnimation { duration: 225; easing.type: Easing.OutExpo }
+          NumberAnimation { duration: 225; easing.type: Easing.InOutBack }
       }
 
       // visible background is drawn by the notch Shape below; keep the
@@ -510,8 +510,8 @@ ShellRoot {
           }
       }
 
-      Behavior on implicitWidth { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
-      NumberAnimation { id: heightAnim; target: box; property: "height"; easing.type: Easing.OutExpo }
+      Behavior on implicitWidth { NumberAnimation { duration: 225; easing.type: Easing.InOutBack } }
+      NumberAnimation { id: heightAnim; target: box; property: "height"; easing.type: Easing.InOutBack }
 
       MouseArea {
         anchors.fill: parent
@@ -907,7 +907,7 @@ ShellRoot {
         // down/up entry: content drops in from behind the notch on open,
         // lifts back up on close (matches the other menus)
         property real slideY: box.controlCenter ? 0 : -60
-        Behavior on slideY { NumberAnimation { duration: 500; easing.type: Easing.OutExpo } }
+        Behavior on slideY { NumberAnimation { duration: 500; easing.type: Easing.InOutBack } }
         transform: Translate {
           x: ccContent.ccShift
           y: ccContent.slideY
