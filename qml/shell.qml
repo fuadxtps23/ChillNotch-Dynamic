@@ -411,6 +411,8 @@ ShellRoot {
           } else {
               heightAnim.to = implicitHeight
               heightAnim.duration = mediaAutoOpened ? 650 : 550
+              // gentler back when collapsing panel -> pill (strong dip there reads as a bounce)
+              heightAnim.easing.overshoot = implicitHeight < height ? 0.6 : 1.70158
               heightAnim.start()
           }
       }
@@ -510,7 +512,13 @@ ShellRoot {
           }
       }
 
-      Behavior on implicitWidth { NumberAnimation { duration: 225; easing.type: Easing.OutBack } }
+      Behavior on implicitWidth {
+          NumberAnimation { id: widthEase; duration: 225; easing.type: Easing.OutBack }
+      }
+      onImplicitWidthChanged: {
+          // growing = collapsing back to pill -> gentler back
+          widthEase.easing.overshoot = implicitWidth > width ? 0.6 : 1.70158
+      }
       NumberAnimation { id: heightAnim; target: box; property: "height"; easing.type: Easing.OutBack }
 
       MouseArea {
@@ -907,7 +915,13 @@ ShellRoot {
         // down/up entry: content drops in from behind the notch on open,
         // lifts back up on close (matches the other menus)
         property real slideY: box.controlCenter ? 0 : -60
-        Behavior on slideY { NumberAnimation { duration: 500; easing.type: Easing.OutBack } }
+        Behavior on slideY {
+          NumberAnimation {
+            duration: 500
+            easing.type: Easing.OutBack
+            easing.overshoot: box.controlCenter ? 1.70158 : 0.6
+          }
+        }
         transform: Translate {
           x: ccContent.ccShift
           y: ccContent.slideY
