@@ -246,7 +246,7 @@ ShellRoot {
       // the extra panel width while the panels hang off the CC content
       property real panelShift: (controlCenter && ccButtons.wifiPanelOpened ? -127.5 : 0)
                               + (controlCenter && ccButtons.btPanelOpened ? 127.5 : 0)
-      Behavior on panelShift { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
+      Behavior on panelShift { NumberAnimation { id: shiftEase; duration: 175; easing.type: Easing.OutBack } }
       anchors.horizontalCenterOffset: panelShift
       readonly property bool revealed: !Config.pillOnHover
         || shellRoot.pillHoverActive
@@ -518,6 +518,10 @@ ShellRoot {
       onImplicitWidthChanged: {
           // growing = collapsing back to pill -> gentler back
           widthEase.easing.overshoot = implicitWidth > width ? 0.6 : 1.70158
+          // keep center-shift + content-shift on the identical curve as width,
+          // otherwise the right edge (nothing open there) wobbles mid-animation
+          shiftEase.easing.overshoot = widthEase.easing.overshoot
+          contentShiftEase.easing.overshoot = widthEase.easing.overshoot
       }
       NumberAnimation { id: heightAnim; target: box; property: "height"; easing.type: Easing.OutBack }
 
@@ -911,7 +915,7 @@ ShellRoot {
         id: ccContent
         anchors.centerIn: parent
         property real ccShift: (ccButtons.wifiPanelOpened ? 127.5 : 0) + (ccButtons.btPanelOpened ? -127.5 : 0)
-        Behavior on ccShift { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
+        Behavior on ccShift { NumberAnimation { id: contentShiftEase; duration: 175; easing.type: Easing.OutBack } }
         // down/up entry: content drops in from behind the notch on open,
         // lifts back up on close (matches the other menus)
         property real slideY: box.controlCenter ? 0 : -60
