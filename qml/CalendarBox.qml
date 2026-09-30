@@ -16,13 +16,13 @@ Rectangle {
   y: box.y + box.height * box.dpi + 5 * box.dpi
   color: Theme.bg
   radius: 18 * box.dpi
-  Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
-  Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutExpo } }
+  Behavior on opacity { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
+  Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.OutExpo } }
   // down/up entry like the other menus: slides out from behind the bar
   property real slideY: shown ? 0 : -30 * box.dpi
   Behavior on slideY {
     NumberAnimation {
-      duration: 225
+      duration: 155
       easing.type: Easing.OutBack
       easing.overshoot: shown ? 1.0 : 0.5
     }

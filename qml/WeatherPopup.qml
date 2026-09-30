@@ -29,12 +29,12 @@ Rectangle {
   color: Theme.bgD
   radius: 20 * box.dpi
 
-  Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutExpo } }
+  Behavior on opacity { NumberAnimation { duration: 155; easing.type: Easing.OutExpo } }
   // down/up entry like the other menus: slides out from behind the bar
   property real slideY: shown ? 0 : -30 * box.dpi
   Behavior on slideY {
     NumberAnimation {
-      duration: 225
+      duration: 170
       easing.type: Easing.OutBack
       easing.overshoot: shown ? 1.0 : 0.5
     }

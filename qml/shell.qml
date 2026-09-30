@@ -246,7 +246,7 @@ ShellRoot {
       // the extra panel width while the panels hang off the CC content
       property real panelShift: (controlCenter && ccButtons.wifiPanelOpened ? -127.5 : 0)
                               + (controlCenter && ccButtons.btPanelOpened ? 127.5 : 0)
-      Behavior on panelShift { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+      Behavior on panelShift { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
       anchors.horizontalCenterOffset: panelShift
       readonly property bool revealed: !Config.pillOnHover
         || shellRoot.pillHoverActive
@@ -262,7 +262,7 @@ ShellRoot {
       opacity: revealed && (!fullscreenActive && !notifFullscreenMode) ? 1 : 0
 
       Behavior on opacity {
-        NumberAnimation { duration: 220; easing.type: Easing.OutExpo }
+        NumberAnimation { duration: 170; easing.type: Easing.OutExpo }
       }
 
       visible: opacity > 0
@@ -410,7 +410,7 @@ ShellRoot {
               height = implicitHeight
           } else {
               heightAnim.to = implicitHeight
-              heightAnim.duration = mediaAutoOpened ? 650 : 550
+              heightAnim.duration = mediaAutoOpened ? 500 : 400
               // gentler back when collapsing panel -> pill (strong dip there reads as a bounce)
               heightAnim.easing.overshoot = implicitHeight < height ? 0.6 : 1.70158
               heightAnim.start()
@@ -498,7 +498,7 @@ ShellRoot {
       transformOrigin: Item.Top
 
       Behavior on radius {
-          NumberAnimation { duration: 225; easing.type: Easing.OutBack }
+          NumberAnimation { duration: 175; easing.type: Easing.OutBack }
       }
 
       // visible background is drawn by the notch Shape below; keep the
@@ -513,7 +513,7 @@ ShellRoot {
       }
 
       Behavior on implicitWidth {
-          NumberAnimation { id: widthEase; duration: 225; easing.type: Easing.OutBack }
+          NumberAnimation { id: widthEase; duration: 175; easing.type: Easing.OutBack }
       }
       onImplicitWidthChanged: {
           // growing = collapsing back to pill -> gentler back
@@ -728,7 +728,7 @@ ShellRoot {
         Behavior on opacity {
           SequentialAnimation {
             PauseAnimation { duration: box.cliphistOpen ? 15 : 0 }
-            NumberAnimation { duration: 150; easing.type: Easing.OutExpo }
+            NumberAnimation { duration: 120; easing.type: Easing.OutExpo }
           }
         }
 
@@ -765,7 +765,7 @@ ShellRoot {
         Behavior on opacity {
           SequentialAnimation {
             PauseAnimation { duration: box.wallpaperSwitcherOpen ? 15 : 0 }
-            NumberAnimation { duration: 150; easing.type: Easing.OutExpo }
+            NumberAnimation { duration: 120; easing.type: Easing.OutExpo }
           }
         }
         Loader {
@@ -809,7 +809,7 @@ ShellRoot {
           Behavior on opacity {
               SequentialAnimation {
                   PauseAnimation { duration: box.appLauncher ? 15 : 0 }
-                  NumberAnimation { duration: 150; easing.type: Easing.OutExpo }
+                  NumberAnimation { duration: 120; easing.type: Easing.OutExpo }
               }
           }
 
@@ -847,7 +847,7 @@ ShellRoot {
           Behavior on opacity {
               SequentialAnimation {
                   PauseAnimation { duration: box.powerMenu ? 15 : 0 }
-                  NumberAnimation { duration: 150; easing.type: Easing.OutExpo }
+                  NumberAnimation { duration: 120; easing.type: Easing.OutExpo }
               }
           }
 
@@ -911,13 +911,13 @@ ShellRoot {
         id: ccContent
         anchors.centerIn: parent
         property real ccShift: (ccButtons.wifiPanelOpened ? 127.5 : 0) + (ccButtons.btPanelOpened ? -127.5 : 0)
-        Behavior on ccShift { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+        Behavior on ccShift { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
         // down/up entry: content drops in from behind the notch on open,
         // lifts back up on close (matches the other menus)
         property real slideY: box.controlCenter ? 0 : -60
         Behavior on slideY {
           NumberAnimation {
-            duration: 500
+            duration: 155
             easing.type: Easing.OutBack
             easing.overshoot: box.controlCenter ? 1.0 : 0.5
           }
@@ -934,7 +934,7 @@ ShellRoot {
         Behavior on opacity {
           SequentialAnimation {
             PauseAnimation { duration: box.controlCenter ? 1 : 0 }
-            NumberAnimation { duration: 300; easing.type: Easing.OutExpo }
+            NumberAnimation { duration: 230; easing.type: Easing.OutExpo }
           }
         }
 
@@ -1015,10 +1015,10 @@ ShellRoot {
           anchors.rightMargin: 12
           anchors.verticalCenter: parent.verticalCenter
           opacity: ccButtons.wifiPanelOpened ? 1 : 0
-          Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          Behavior on opacity { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
           transform: Translate {
             x: wifiPanel.wifiX
-            Behavior on x { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+            Behavior on x { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
           }
           property real wifiX: ccButtons.wifiPanelOpened ? 0 : 45
           enabled: ccButtons.wifiPanelOpened
@@ -1031,10 +1031,10 @@ ShellRoot {
           anchors.leftMargin: 12
           anchors.verticalCenter: parent.verticalCenter
           opacity: ccButtons.btPanelOpened ? 1 : 0
-          Behavior on opacity { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+          Behavior on opacity { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
           transform: Translate {
             x: btPanel.btX
-            Behavior on x { NumberAnimation { duration: 225; easing.type: Easing.OutExpo } }
+            Behavior on x { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
           }
           property real btX: ccButtons.btPanelOpened ? 0 : -45
           enabled: ccButtons.btPanelOpened
@@ -1056,7 +1056,7 @@ ShellRoot {
         Behavior on opacity {
           SequentialAnimation {
             PauseAnimation { duration: box.miniDashboard ? 1 : 0 }
-            NumberAnimation { duration: 300; easing.type: Easing.OutExpo }
+            NumberAnimation { duration: 230; easing.type: Easing.OutExpo }
           }
         }
 
