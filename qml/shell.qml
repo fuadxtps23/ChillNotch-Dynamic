@@ -921,9 +921,12 @@ ShellRoot {
         property real slideY: box.controlCenter ? 0 : -60
         Behavior on slideY {
           NumberAnimation {
-            duration: 155
+            // must track the box height anim exactly (heightAnim): same
+            // duration, easing and overshoot, or content settles early and
+            // the box clip edge pops the sliders in one by one
+            duration: box.mediaAutoOpened ? 500 : 400
             easing.type: Easing.OutBack
-            easing.overshoot: box.controlCenter ? 1.0 : 0.5
+            easing.overshoot: box.controlCenter ? 1.70158 : 0.6
           }
         }
         transform: Translate {
@@ -933,12 +936,23 @@ ShellRoot {
         width: Math.min(box.implicitWidth - 24, 366)
         opacity: box.controlCenter && box.activeOsd === "" && !notificationModule.active && !box.powerMenu ? 1 : 0
         visible: opacity > 0
-        height: Math.max(0, box.height - 25)
+        // open: instant full height + centerIn makes content glide down with
+        // the growing box (mini-dashboard style, one block, no clip stagger).
+        // once settled (opacity 1) or when height changes mid-open (wifi/bt
+        // morph, nightlight, player, OSD) follow box.height instead, or the
+        // content jumps (bug.mp4 bounce).
+        height: (box.controlCenter && box.activeOsd === ""
+                 && !notificationModule.active && !box.powerMenu
+                 && opacity < 1)
+                ? Math.max(0, box.implicitHeight - 25)
+                : Math.max(0, box.height - 25)
 
         Behavior on opacity {
           SequentialAnimation {
             PauseAnimation { duration: box.controlCenter ? 1 : 0 }
-            NumberAnimation { duration: 230; easing.type: Easing.OutExpo }
+            // must finish together with heightAnim so the height mode
+            // switch lands exactly at equilibrium -> no jump
+            NumberAnimation { duration: box.mediaAutoOpened ? 500 : 400; easing.type: Easing.OutExpo }
           }
         }
 
