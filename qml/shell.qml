@@ -423,12 +423,17 @@ ShellRoot {
 
       // adjust pill shape conditionally (pill state)
       readonly property real dpi: Config.dpiScale
+      // an open widget always owns the panel shape; the toast capsule
+      // (320x52 r99) must never override it, or opening anything while a
+      // toast is up shows the notification shape until hideTimer expires
+      readonly property bool toastOwnsPanel: notificationModule.active
+        && !notifFullscreenMode && !anyWidgetOpen
 
       readonly property real baseWidth: activeOsd === "battery" ? osdWidth
                     : activeOsd === "timer" ? osdWidth
                     : (activeOsd === "volume" || activeOsd === "brightness"
                        || activeOsd === "lock" || activeOsd === "mic") ? osdWidth
-                    : (notificationModule.active && !notifFullscreenMode) ? 320
+                    : toastOwnsPanel ? 320
                     : powerMenu ? 342
                     : controlCenter ? (390 + (ccButtons.wifiPanelOpened ? 255 : 0) + (ccButtons.btPanelOpened ? 255 : 0))
                     : appLauncher ? 378
@@ -464,7 +469,7 @@ ShellRoot {
                   : activeOsd === "timer" ? osdHeight
                   : (activeOsd === "volume" || activeOsd === "brightness"
                      || activeOsd === "lock" || activeOsd === "mic") ? pillHeight
-                  : (notificationModule.active && !notifFullscreenMode) ? 52
+                  : toastOwnsPanel ? 52
                   : powerMenu ? 100
                   : controlCenter && mprisModule.hasPlayer
                       ? Math.max(303 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccPanelOpen ? 333 : 0)
@@ -479,7 +484,7 @@ ShellRoot {
                   : mediaAutoOpened ? 90
                   : pillHeight
 
-      readonly property real baseRadius: notificationModule.active ? 99
+      readonly property real baseRadius: toastOwnsPanel ? 99
         : cliphistOpen && cliphistPreviewing ? 33
         : cliphistOpen ? 28
         : controlCenter ? (notificationModule.notifications.length > 0
@@ -494,6 +499,7 @@ ShellRoot {
       implicitWidth: baseWidth
       implicitHeight: baseHeight
       radius: baseRadius
+
       scale: dpi
       transformOrigin: Item.Top
 
@@ -709,9 +715,7 @@ ShellRoot {
 
       // notification
       NotificationPopup {
-        active: notificationModule.active
-                && !notifFullscreenMode
-                && box.activeOsd === ""
+        active: box.toastOwnsPanel && box.activeOsd === ""
         notif: notificationModule.current
       }
 
@@ -721,7 +725,7 @@ ShellRoot {
         width: box.implicitWidth - 22
         height: (box.cliphistOpen ? box.implicitHeight - 22 : 0) + cliphistExtraHeight
         opacity: box.cliphistOpen
-                 && !notificationModule.active
+                 && !box.toastOwnsPanel
                  && box.activeOsd === ""
                  && !box.controlCenter
                  && !box.powerMenu ? 1 : 0
@@ -757,7 +761,7 @@ ShellRoot {
         width: box.implicitWidth - 28
         height: box.wallpaperSwitcherOpen ? 280 : 0
         opacity: box.wallpaperSwitcherOpen
-                 && !notificationModule.active
+                 && !box.toastOwnsPanel
                  && box.activeOsd === ""
                  && !box.controlCenter
                  && !box.miniDashboard
@@ -802,7 +806,7 @@ ShellRoot {
               ? (appLauncherLoader.item ? appLauncherLoader.item.height : 387)
               : 0
           opacity: box.appLauncher
-                   && !notificationModule.active
+                   && !box.toastOwnsPanel
                    && box.activeOsd === ""
                    && !box.controlCenter
                    && !box.miniDashboard
@@ -839,7 +843,7 @@ ShellRoot {
           width: box.implicitWidth - 25
           height: box.powerMenu ? box.implicitHeight - 18 : 0
           opacity: box.powerMenu
-                   && !notificationModule.active
+                   && !box.toastOwnsPanel
                    && box.activeOsd === ""
                    && !box.controlCenter
                    && !box.miniDashboard
@@ -889,7 +893,7 @@ ShellRoot {
       Item {
           anchors.fill: parent
           opacity: box.activeOsd === ""
-                   && !notificationModule.active
+                   && !box.toastOwnsPanel
                    && !box.controlCenter
                    && !box.cliphistOpen
                    && !box.miniDashboard
@@ -934,7 +938,7 @@ ShellRoot {
           y: ccContent.slideY
         }
         width: Math.min(box.implicitWidth - 24, 366)
-        opacity: box.controlCenter && box.activeOsd === "" && !notificationModule.active && !box.powerMenu ? 1 : 0
+        opacity: box.controlCenter && box.activeOsd === "" && !box.toastOwnsPanel && !box.powerMenu ? 1 : 0
         visible: opacity > 0
         // open: instant full height + centerIn makes content glide down with
         // the growing box (mini-dashboard style, one block, no clip stagger).
@@ -942,7 +946,7 @@ ShellRoot {
         // morph, nightlight, player, OSD) follow box.height instead, or the
         // content jumps (bug.mp4 bounce).
         height: (box.controlCenter && box.activeOsd === ""
-                 && !notificationModule.active && !box.powerMenu
+                 && !box.toastOwnsPanel && !box.powerMenu
                  && opacity < 1)
                 ? Math.max(0, box.implicitHeight - 25)
                 : Math.max(0, box.height - 25)
@@ -971,7 +975,7 @@ ShellRoot {
           mediaAutoOpened: mediaAutoOpened
           hasPlayer: mprisModule.hasPlayer
           playerHeight: box.ccButtonHeight
-          notificationPopup: notificationModule.active
+          notificationPopup: box.toastOwnsPanel
         } 
 
         CcSliders {
@@ -1065,7 +1069,7 @@ ShellRoot {
         width: box.implicitWidth - 30
         height: box.miniDashboard ? box.implicitHeight - 30 : 0  // don't fight the animation
         opacity: box.miniDashboard
-                 && !notificationModule.active
+                 && !box.toastOwnsPanel
                  && box.activeOsd === ""
                  && !box.cliphistOpen
                  && !box.powerMenu ? 1 : 0
