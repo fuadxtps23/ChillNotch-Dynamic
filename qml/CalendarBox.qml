@@ -24,7 +24,7 @@ Rectangle {
     NumberAnimation {
       duration: 225
       easing.type: Easing.OutBack
-      easing.overshoot: shown ? 1.70158 : 0.6
+      easing.overshoot: shown ? 1.0 : 0.5
     }
   }
   transform: Translate { y: calendarPopup.slideY }

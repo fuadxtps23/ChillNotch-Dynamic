@@ -919,7 +919,7 @@ ShellRoot {
           NumberAnimation {
             duration: 500
             easing.type: Easing.OutBack
-            easing.overshoot: box.controlCenter ? 1.70158 : 0.6
+            easing.overshoot: box.controlCenter ? 1.0 : 0.5
           }
         }
         transform: Translate {
