@@ -105,7 +105,9 @@ ShellRoot {
     WlrLayershell.layer: (box.activeOsd !== "" || notificationModule.active)
       ? WlrLayershell.Overlay : WlrLayershell.Top
     WlrLayershell.keyboardFocus: (box.cliphistOpen || box.appLauncher || box.wallpaperSwitcherOpen || box.powerMenu || wifiPanel.passwordPromptVisible || btPanel.wantsKeyboardFocus) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    implicitHeight: Math.max(885 * scale, calendarPopup.visible ? calendarPopup.y + calendarPopup.height : 0)
+    // cover the screen height (+margin) instead of screen*dpr: with dpr=2
+    // the old `885 * scale` made the surface 1770px tall vs the 810px screen
+    implicitHeight: Math.max(screen.height + 75, calendarPopup.visible ? calendarPopup.y + calendarPopup.height : 0, weatherPopupLoader.item && weatherPopupLoader.item.shown ? weatherPopupLoader.item.y + weatherPopupLoader.item.height : 0)
     onScreenChanged: console.log("dpi:", screen.devicePixelRatio)
     property real scale: screen ? screen.devicePixelRatio : 1.0
 
@@ -196,7 +198,7 @@ ShellRoot {
       anchors.horizontalCenterOffset: box.panelShift
       z: -1 // behind box and all content
       layer.enabled: true
-      layer.samples: 16 // multisample antialiasing on the path edges
+      layer.samples: 4 // multisample antialiasing on the path edges (16 was a big iGPU cost)
       readonly property real r: Math.min(box.radius, box.width / 2, box.height / 2)
       // body spans the full box; shoulders/tips flare out by r on each side
       width: box.width + 2 * r
@@ -366,7 +368,7 @@ ShellRoot {
         stdout: StdioCollector { onStreamFinished: box.parseLocks(text) }
       }
       Timer {
-        interval: 200
+        interval: 500 // was 200: spawning hyprctl 5x/s cost more idle CPU than the LED needs
         running: true
         repeat: true
         onTriggered: kbLedProc.running = true
