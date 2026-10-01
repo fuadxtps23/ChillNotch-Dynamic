@@ -43,6 +43,9 @@ Singleton {
       property var pillModules: ["battery", "volume", "workspaces", "network", "clock"]
       property string customWallpaperScript: ""
       property bool pillOnHover: false
+      property bool panelTransparency: false
+      property real panelOpacity: 0.7
+      property bool panelBlur: true
       property bool confirmPowerActions: true
       property int maxVolume: 100
       property bool separatePreviewTabTypes: true
@@ -79,6 +82,9 @@ Singleton {
   readonly property alias pillModules: adapter.pillModules
   readonly property alias customWallpaperScript: adapter.customWallpaperScript
   readonly property alias pillOnHover: adapter.pillOnHover
+  readonly property alias panelTransparency: adapter.panelTransparency
+  readonly property alias panelOpacity: adapter.panelOpacity
+  readonly property alias panelBlur: adapter.panelBlur
   readonly property alias confirmPowerActions: adapter.confirmPowerActions
   readonly property alias maxVolume: adapter.maxVolume
   readonly property alias separatePreviewTabTypes: adapter.separatePreviewTabTypes

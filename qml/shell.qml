@@ -98,6 +98,25 @@ ShellRoot {
     onExited: (exitCode) => { shellRoot.cavaAvailable = (exitCode === 0) }
   }
 
+  // compositor blur for the panel surface, driven by config.jsonc panelBlur:
+  // hyprland's config sets blur=true for namespace quickshell; adding a later
+  // rule with the same namespace overrides the blur flag for that match
+  Process {
+    id: panelBlurProc
+    readonly property string evalCode: "hl.layer_rule({match={namespace=\"quickshell\"}, blur=" + (Config.panelBlur ? "true" : "false") + ", ignore_alpha=0.1})"
+    command: ["hyprctl", "eval", evalCode]
+    running: false
+  }
+  function applyPanelBlur() {
+    panelBlurProc.running = false
+    panelBlurProc.running = true
+  }
+  Connections {
+    target: Config
+    function onPanelBlurChanged() { shellRoot.applyPanelBlur() }
+  }
+  Component.onCompleted: applyPanelBlur()
+
   PanelWindow {
     id: panelWindow
     // overlay layer while the OSD or a notification is up, so the pill
@@ -209,7 +228,7 @@ ShellRoot {
       transformOrigin: Item.Top
 
       ShapePath {
-        fillColor: "#000000"
+        fillColor: Config.panelTransparency ? Qt.rgba(0, 0, 0, Config.panelOpacity) : "#000000"
         strokeColor: "transparent"
 
         startX: 0
