@@ -26,6 +26,8 @@ into your session at all times. It's not bound to any dotfiles.
 [![Installation](https://img.shields.io/badge/Installation-252525?style=flat-square)](#install)
 [![Auto Startup](https://img.shields.io/badge/Auto%20Startup-252525?style=flat-square)](#auto-startup)
 [![Key Bindings](https://img.shields.io/badge/Key%20Bindings-252525?style=flat-square)](#key-bindings)
+[![IPC](https://img.shields.io/badge/IPC-252525?style=flat-square)](#ipc)
+[![Troubleshooting](https://img.shields.io/badge/Troubleshooting-252525?style=flat-square)](#troubleshooting)
 [![Acknowledgements](https://img.shields.io/badge/Acknowledgements-252525?style=flat-square)](#contributors)
 
 </div>
@@ -242,6 +244,9 @@ into your session at all times. It's not bound to any dotfiles.
 | `confirmPowerActions` | Prompt for confirmation before critical power actions (Shutdown, Restart, Logout) | `true` |
 | `maxVolume` | Max volume the slider can reach | `100` |
 | `separatePreviewTabTypes` | Skip a different item type (image,text) when switching in clipboard manager preview tab | `true` |
+| `panelTransparency` | Make the pill/panel background semi-transparent instead of solid black (see [Transparency & blur](#transparency--blur)) | `false` |
+| `panelOpacity` | Background opacity used when `panelTransparency` is on; `0.0` (invisible) – `1.0` (solid) | `0.7` |
+| `panelBlur` | Compositor blur behind the panel surface. Needs Hyprland's blur enabled for it to be visible (see [Transparency & blur](#transparency--blur)) | `true` |
 
 <details>
 <summary>Raw config example</summary>
@@ -280,11 +285,34 @@ into your session at all times. It's not bound to any dotfiles.
   "showSensitiveInfo": true,
   "confirmPowerActions": true,
   "maxVolume": 100,
-  "separatePreviewTabTypes": true
+  "separatePreviewTabTypes": true,
+  "panelTransparency": false,
+  "panelOpacity": 0.7,
+  "panelBlur": true
 }
 ```
 
 </details>
+
+### Transparency & blur
+
+The panel background is solid black by default. Three config options change that:
+
+```jsonc
+"panelTransparency": true, // draw the panel semi-transparent instead of solid black
+"panelOpacity": 0.7,       // how see-through it is: 0.0 = invisible, 1.0 = solid black
+"panelBlur": true          // compositor blur behind the panel surface
+```
+
+- `panelOpacity` is only used while `panelTransparency` is `true`.
+- `panelBlur` is applied live: the shell pushes a Hyprland layer rule for its own
+  namespace on every change, so flipping it in the config takes effect immediately —
+  no shell or Hyprland restart needed (the config file is watched).
+- For `panelBlur` to actually blur anything, blur must be enabled in Hyprland itself
+  (`decoration:blur` in your Hyprland config, which most dotfiles enable already).
+  With blur off at the compositor level, `panelBlur` is a no-op.
+- Blur cost is compositor-side. On very weak iGPUs, `"panelBlur": false` with
+  `panelTransparency` on gives the frosted-less transparent look for free.
 
 ### Custom Pill Modules
 
@@ -458,11 +486,69 @@ hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("qs ipc -p /usr/share/chillnotch
 hl.bind(mainMod .. " + CTRL + C",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call controlCenter toggle"))
 hl.bind(mainMod .. " + CTRL + V",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call cliphist toggle"))
 hl.bind(mainMod .. " + CTRL + B",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call miniDashboard toggle"))
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call appLauncher toggle"))
-hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call wallpaperSwitcher toggle"))
-hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("chillnotch-dynamic-ipc call powerMenu toggle"))
+hl.bind(mainMod .. " + D",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call appLauncher toggle"))
+hl.bind(mainMod .. " + W",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call wallpaperSwitcher toggle"))
+hl.bind(mainMod .. " + Escape",  hl.dsp.exec_cmd("chillnotch-dynamic-ipc call powerMenu toggle"))
 ```
 </details>
+
+## IPC
+
+Every pill state is controllable over Quickshell's IPC, which is how the keybinds
+above work — usable from scripts, waybar, rofi bindings, anything that can run a command:
+
+```bash
+qs ipc -p /usr/share/chillnotch-dynamic call <target> <function>
+```
+
+| Target | Functions | Opens |
+|---|---|---|
+| `controlCenter` | `toggle` / `show` / `hide` | Control center (media, sliders, buttons, notifications) |
+| `miniDashboard` | `toggle` / `show` / `hide` | Mini dashboard (profile, tray, calendar, weather, power) |
+| `cliphist` | `toggle` / `show` / `hide` | Clipboard history |
+| `appLauncher` | `toggle` / `show` / `hide` | App launcher |
+| `wallpaperSwitcher` | `toggle` / `show` / `hide` | Wallpaper switcher |
+| `powerMenu` | `toggle` / `show` / `hide` | Power pill state (lock, sleep, logout, restart, shutdown) |
+
+Notes:
+
+- Only one pill state is open at a time — opening another closes the current one.
+- The three mouse-openable states (control center, cliphist, mini dashboard) can also
+  just be left/middle/right clicked on the pill; IPC exists for the rest and for scripting.
+- NixOS users: the same targets work through the `chillnotch-dynamic-ipc` wrapper.
+
+## Troubleshooting
+
+**`module "IslandBackend" is not installed`**
+The shell needs its bundled backend on the QML/DLL search path. Always launch through
+`launcher.sh` / the installed binary (they set `QML_IMPORT_PATH` and `LD_LIBRARY_PATH`
+for you). If you must run `qs` directly:
+
+```bash
+QML_IMPORT_PATH=/usr/share/chillnotch-dynamic \
+LD_LIBRARY_PATH=/usr/share/chillnotch-dynamic/IslandBackend \
+qs -p /usr/share/chillnotch-dynamic
+```
+
+**Pill won't appear / second instance**
+Check for a stale process (`pgrep -f 'qs -p /usr/share/chillnotch-dynamic'`); a half-dead
+instance can hold the layer surface. Kill it and relaunch.
+
+**Config change had no effect**
+`config.jsonc` is watched and reloads live, but an invalid JSON/JSONC edit is silently
+ignored until fixed — check for trailing commas/quotes. Structural QML errors show up
+in the shell log: `strings $(ls -t /run/user/1000/quickshell/by-id/*/log.qslog | head -1)`.
+
+**`panelBlur` does nothing**
+Blur is applied by the compositor, not the shell. Enable `decoration:blur` in your
+Hyprland config and make sure `panelTransparency` is on so there's something to blur through.
+
+**Wallpaper previews show a broken image icon**
+Install `qt6-imageformats` (WEBP support) — previews fall back silently without it.
+
+**Caps Lock OSD lags or doesn't show**
+It polls `hyprctl devices` twice a second; if it's missing entirely, verify `hyprctl`
+works in your session.
 
 ---
 
