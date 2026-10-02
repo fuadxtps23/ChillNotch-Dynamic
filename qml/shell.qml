@@ -1569,7 +1569,7 @@ ShellRoot {
   // audio visualizer spectrum process
   Process {
     id: cavaProc
-    command: ["sh", "-c", "cava -p ~/.cache/chillpill-shell/cava.conf"]
+    command: ["sh", "-c", "cava -p ~/.cache/chillnotch-dynamic/cava.conf"]
     running: Config.showAudioVisuals && box.controlCenter && shellRoot.cavaAvailable
     stdout: SplitParser {
       splitMarker: "\n"

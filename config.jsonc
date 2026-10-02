@@ -31,5 +31,8 @@
   "showSensitiveInfo": true,
   "confirmPowerActions": true,
   "maxVolume": 100,
-  "separatePreviewTabTypes": true
+  "separatePreviewTabTypes": true,
+  "panelTransparency": false,
+  "panelOpacity": 0.7,
+  "panelBlur": true
 }

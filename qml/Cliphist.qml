@@ -195,7 +195,7 @@ Item {
         if (!Config.deleteCliphistImgCache) return
         let safe = root.safeIds(ids)
         if (safe.length === 0) return
-        let dir = Quickshell.env("HOME") + "/.cache/chillpill-shell/cliphist-imgs"
+        let dir = Quickshell.env("HOME") + "/.cache/chillnotch-dynamic/cliphist-imgs"
         imgCacheProc.command = ["rm", "-f"].concat(safe.map(id => dir + "/" + id + ".png"))
         imgCacheProc.running = false
         imgCacheProc.running = true
@@ -401,7 +401,7 @@ Item {
 
     Process {
         id: listProc
-        command: ["bash", "-c", "/usr/share/chillpill-shell/scripts/cliphist-img.sh"]
+        command: ["bash", "-c", Quickshell.shellDir + "/scripts/cliphist-img.sh"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {

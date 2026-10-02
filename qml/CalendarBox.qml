@@ -34,7 +34,7 @@ Rectangle {
   property bool holidaysEnabled: Config.country.trim() !== "" && Config.country.toLowerCase() !== "none"
   property bool fetchFailed: false
   property string cachePath: holidaysEnabled
-    ? `${Quickshell.env("HOME")}/.cache/chillpill-shell/events_${Config.country}_${datetimeItem.viewYear}.json`
+    ? `${Quickshell.env("HOME")}/.cache/chillnotch-dynamic/events_${Config.country}_${datetimeItem.viewYear}.json`
     : ""
 
   FileView {
@@ -55,7 +55,7 @@ Rectangle {
   Process {
     id: holidayFetcher
     command: [
-      "/usr/share/chillpill-shell/scripts/calendar_events.py",
+      Quickshell.shellDir + "/scripts/calendar_events.py",
       Config.country,
       datetimeItem.viewYear.toString(),
       calendarPopup.cachePath
