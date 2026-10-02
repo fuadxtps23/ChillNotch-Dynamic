@@ -21,6 +21,7 @@ into your session at all times. It's not bound to any dotfiles.
 [![Showcase](https://img.shields.io/badge/Showcase-252525?style=flat-square)](#showcase)
 [![Features](https://img.shields.io/badge/Features-252525?style=flat-square)](#features)
 [![Configuration](https://img.shields.io/badge/Configuration-252525?style=flat-square)](#configurable-options)
+[![Pill Modules](https://img.shields.io/badge/Pill%20Modules-252525?style=flat-square)](#built-in-pill-modules)
 [![Custom Modules](https://img.shields.io/badge/Custom%20Modules-252525?style=flat-square)](#custom-pill-modules)
 [![Dependencies](https://img.shields.io/badge/Dependencies-252525?style=flat-square)](#dependencies)
 [![Installation](https://img.shields.io/badge/Installation-252525?style=flat-square)](#install)
@@ -119,7 +120,7 @@ into your session at all times. It's not bound to any dotfiles.
 
 ## Features
 
-- **Main Pill Bar**                - Battery, volume, microphone, workspaces, network, clock (default; customizable) — for more module options, see 'Know more' below.
+- **Main Pill Bar**                - Battery, volume, microphone, workspaces, network, clock (default; customizable) — for all module options, see [Built-in Pill Modules](#built-in-pill-modules).
 - **Control Center**               - Media player, buttons (WiFi, Silent Notifs, Timer, Bluetooth, On-Screen Keyboard, Idle Inhibitor, Night Light, Monitor Mirror), volume, microphone & brightness sliders, night-light temperature slider, notification stack
 - **Cliphist (Clipboard Manager)** - Search, clipboard image preview, item index status, multi select to delete many items at once (`Shift + Up/Down` range, `Shift + Space` pick, `Del` to delete), `Tab` to full preview the clipboard image/text
 - **Mini Dashboard**               - Profile image, username, hostname, uptime, battery, basic network info, system tray (below the IP, centered), today's data usage, datetime, weather, calendar, power buttons (lock, sleep, shutdown, reboot)
@@ -138,7 +139,7 @@ into your session at all times. It's not bound to any dotfiles.
 ---
 - Main pill bar modules has tooltips
 
-- Extra modules available for the pill bar beyond the defaults: `mic`, `weather`, `bluetooth`, `vpn`, `notifications`, `brightness`
+- Extra modules available for the pill bar beyond the defaults: `mic`, `weather`, `bluetooth`, `vpn`, `notifications`, `brightness`, `datetime`, `dataUsage`, `ipStatus` — see [Built-in Pill Modules](#built-in-pill-modules) for what each shows, its click action and its tooltip
 
 - Pill bar supports custom modules (waybar-style) — run any command/script in the bar with `format`/`tooltip` templates, refresh intervals, streaming output and click actions (see [Custom pill modules](#custom-pill-modules)).
 
@@ -215,7 +216,7 @@ into your session at all times. It's not bound to any dotfiles.
 | `clockFormat` | Clock format for the pill bar | `hh:mm` |
 | `pillBottomMargin` | Bottom spacing of pill bar | `26` |
 | `pillScale` | Scale factor for pill bar size | `1.0` |
-| `pillModules` | Pill bar modules order/add/remove. Accepts built-in module names or custom module (see [Custom pill modules](#custom-pill-modules)) | `["battery", "volume", "workspaces", "network", "clock"]` |
+| `pillModules` | Pill bar modules order/add/remove. Accepts built-in module names (see [Built-in Pill Modules](#built-in-pill-modules)) or custom module (see [Custom pill modules](#custom-pill-modules)) | `["battery", "volume", "workspaces", "network", "clock"]` |
 | `pillOnHover` | Auto hide the pill bar and only show on hover | `false` |
 | `dpiScale` | DPI Scaling | `1.0` |
 | `textFontFamily` | Font family for general text | `Monocraft` |
@@ -313,6 +314,38 @@ The panel background is solid black by default. Three config options change that
   With blur off at the compositor level, `panelBlur` is a no-op.
 - Blur cost is compositor-side. On very weak iGPUs, `"panelBlur": false` with
   `panelTransparency` on gives the frosted-less transparent look for free.
+
+### Built-in Pill Modules
+
+`pillModules` accepts these built-in names (exact and case-sensitive) in any order:
+
+| Name | Shows in the bar | Click | Hover tooltip |
+|---|---|---|---|
+| `battery` | Charge %, charging state | — | Charge % + time until full / remaining |
+| `volume` | Speaker icon + volume % | Mute / unmute | % + Headphones/Speakers (or "Muted") |
+| `mic` | Mic icon + mic level % | Mute / unmute | — |
+| `workspaces` | Workspace buttons (`1`…`maxWorkspaces`) | Focus that workspace | — (never shown) |
+| `network` | Wi-Fi icon + SSID / status text | Toggle Wi-Fi | SSID + signal %, wired, or "Wi-Fi off" |
+| `clock` | Time (`clockFormat`) | — | Date + today's event/holiday |
+| `bluetooth` | BT icon + connected device / state | Toggle Bluetooth | Device + signal %, or off state |
+| `vpn` | VPN state | — | Uptime, region, IP (IP/region hidden when `showSensitiveInfo` is `false`) |
+| `weather` | Condition icon + temperature | — ¹ | Condition, feels-like, location |
+| `notifications` | Bell icon + notification count | — | Count + most recent summary |
+| `brightness` | Sun icon + brightness % | — | Brightness % |
+| `datetime` | Full date & time (`hh:mm a ddd, dd MMM yyyy`) | — ² | — |
+| `dataUsage` | Today's ↓/↑ network totals ³ | — | — |
+| `ipStatus` | Local IP + interface (VPN badge) ³ | — | — |
+
+¹ The weather popup opens from the mini dashboard, not from the bar.
+² The calendar popup opens from the mini dashboard, not from the bar.
+³ `dataUsage` needs [nusgmon](https://github.com/LUCKYS1NGHH/nusgmon) installed. Both fetch only while
+the mini dashboard is open, so in the bar they show `...` placeholders until the dashboard has been
+opened once, then keep the last values.
+
+- Defaults: `["battery", "volume", "workspaces", "network", "clock"]`.
+- Names are case-sensitive — it is `dataUsage` / `ipStatus`, not `datausage` / `ipstatus`. An unknown
+  name renders nothing (the quickshell log shows `File not found`).
+- `mic` and `datetime` have no tooltip; `workspaces` never shows one.
 
 ### Custom Pill Modules
 
