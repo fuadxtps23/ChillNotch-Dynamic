@@ -166,11 +166,19 @@ ColumnLayout {
     Behavior on color { ColorAnimation { duration: 150 } }
     Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
 
-    Text {
-      text: String.fromCodePoint(0xf1f6)
-      color: notificationModule.dndEnabled ? "#fff9eb" : root.buttonFgOff
+    RowLayout {
       anchors.centerIn: parent
-      font { family: Theme.nerdFontFamily; pixelSize: 13 }
+      spacing: 5 * root.dpi
+      Text {
+        text: String.fromCodePoint(0xf1f6)
+        color: notificationModule.dndEnabled ? "#fff9eb" : root.buttonFgOff
+        font { family: Theme.nerdFontFamily; pixelSize: 13 }
+      }
+      Text {
+        text: "DND"
+        color: notificationModule.dndEnabled ? Theme.fg : root.buttonFgOff
+        font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+      }
     }
     HoverHandler { id: dndHover }
     MouseArea {
