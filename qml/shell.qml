@@ -15,6 +15,219 @@ import QtQuick.Shapes
 ShellRoot {
   id: shellRoot
 
+    // inline pickers (ported from FunShell OptionRow/OptionToggle, restyled
+  // to this shell: ON == light #dadada, OFF == dark)
+  component OptionRow: Column {
+    id: opt
+    readonly property real dpi: Config.dpiScale
+    property string label: ""
+    property var choices: []
+    property string current: ""
+    signal picked(string value)
+
+    Layout.fillWidth: true
+    spacing: 5 * dpi
+
+    Text {
+      text: opt.label
+      color: Theme.fg4
+      font { family: Theme.fontFamily; pixelSize: 11 * dpi; bold: true }
+    }
+
+    Flow {
+      width: parent.width
+      spacing: 5 * dpi
+
+      Repeater {
+        model: opt.choices
+
+        delegate: Rectangle {
+          id: pill
+          required property string modelData
+          readonly property bool isCurrent: modelData === opt.current
+
+          height: 22 * dpi
+          width: pillText.implicitWidth + 16 * dpi
+          radius: height / 2
+          color: pill.isCurrent ? Theme.fg
+               : (pillHover.hovered ? Qt.lighter(Theme.bg1, 1.35) : Theme.bg1)
+          Behavior on color { ColorAnimation { duration: 150 } }
+
+          Text {
+            id: pillText
+            anchors.centerIn: parent
+            text: pill.modelData
+            color: pill.isCurrent ? Theme.bg : Theme.fg4
+            font { family: Theme.fontFamily; pixelSize: 10 * dpi; bold: pill.isCurrent }
+          }
+
+          HoverHandler { id: pillHover }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: opt.picked(pill.modelData)
+          }
+        }
+      }
+    }
+  }
+
+  component OptionToggle: RowLayout {
+    id: tog
+    readonly property real dpi: Config.dpiScale
+    property string label: ""
+    property bool checked: false
+    signal toggled(bool checked)
+
+    Layout.fillWidth: true
+    spacing: 8 * dpi
+
+    Text {
+      text: tog.label
+      color: Theme.fg
+      font { family: Theme.fontFamily; pixelSize: 11 * dpi }
+      Layout.fillWidth: true
+      elide: Text.ElideRight
+    }
+
+    Item {
+      width: 34 * dpi
+      height: 18 * dpi
+      Layout.preferredHeight: 18 * dpi
+
+      Rectangle {
+        anchors.fill: parent
+        radius: height / 2
+        color: tog.checked ? Theme.fg : Theme.bg9
+        Behavior on color { ColorAnimation { duration: 150 } }
+      }
+
+      Rectangle {
+        width: 14 * dpi
+        height: 14 * dpi
+        radius: width / 2
+        anchors.verticalCenter: parent.verticalCenter
+        x: tog.checked ? parent.width - width - 2 * dpi : 2 * dpi
+        Behavior on x {
+          NumberAnimation { duration: 130; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+        }
+        color: tog.checked ? Theme.bg : Theme.fg
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: tog.toggled(!tog.checked)
+      }
+    }
+  }
+
+  component RecordPanel: Item {
+    id: panel
+
+    // CcButtons instance: recordPanelOpened + record* settings
+    property var buttons
+
+    readonly property real dpi: Config.dpiScale
+
+    width: 245 * dpi
+    // min 308 == bt/wifi panel height; grows if pill rows wrap
+    height: Math.max(308 * dpi, body.implicitHeight + 28 * dpi)
+
+    Rectangle {
+      anchors.fill: parent
+      color: Theme.bg
+      radius: 26 * dpi
+      clip: true
+
+      ColumnLayout {
+        id: body
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 14 * dpi
+        spacing: 6 * dpi
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: 6 * dpi
+
+          Text {
+            text: "Recording"
+            color: Theme.fg2
+            font { family: Theme.fontFamily; pixelSize: 13 * panel.dpi; bold: true }
+          }
+
+          Item { Layout.fillWidth: true; height: 1 }
+
+          Text {
+            text: String.fromCodePoint(0xf0156)
+            color: closeHover.hovered ? Theme.fg : Theme.fg4
+            font { family: Theme.nerdFontFamily; pixelSize: 13 * panel.dpi }
+            HoverHandler { id: closeHover }
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -6 * panel.dpi
+              cursorShape: Qt.PointingHandCursor
+              onClicked: panel.buttons.recordPanelOpened = false
+            }
+          }
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderBg2 }
+
+        OptionRow {
+          label: "Framerate"
+          choices: ["15", "24", "30", "60"]
+          current: panel.buttons ? String(panel.buttons.recordFramerate) : "30"
+          onPicked: (v) => panel.buttons.recordFramerate = parseInt(v, 10)
+        }
+
+        OptionRow {
+          label: "Quality"
+          choices: ["Low", "Medium", "High", "Lossless"]
+          current: panel.buttons ? panel.buttons.recordQuality : "Medium"
+          onPicked: (v) => panel.buttons.recordQuality = v
+        }
+
+        OptionRow {
+          label: "Codec"
+          choices: ["H.264", "H.265", "VP9"]
+          current: panel.buttons ? panel.buttons.recordCodec : "H.264"
+          onPicked: (v) => panel.buttons.recordCodec = v
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderBg2 }
+
+        OptionToggle {
+          label: "Record audio"
+          checked: panel.buttons ? panel.buttons.recordAudio : true
+          onToggled: (c) => panel.buttons.recordAudio = c
+        }
+
+        OptionToggle {
+          label: "Select region (not full screen)"
+          checked: panel.buttons ? panel.buttons.recordRegionMode : false
+          onToggled: (c) => panel.buttons.recordRegionMode = c
+        }
+
+        OptionToggle {
+          label: "Notify when saved"
+          checked: panel.buttons ? panel.buttons.recordNotifyOnStop : true
+          onToggled: (c) => panel.buttons.recordNotifyOnStop = c
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderBg2 }
+
+        Text {
+          text: "Saves to ~/Videos/Record"
+          color: Theme.fg5
+          font { family: Theme.fontFamily; pixelSize: 10 * panel.dpi }
+        }
+      }
+    }
+  }
+
   IpcHandler {
       target: "cliphist"
       function toggle(): void { box.controlCenter = false; box.miniDashboard = false; box.cliphistOpen = !box.cliphistOpen; box.appLauncher = false; box.wallpaperSwitcherOpen = false; box.powerMenu = false }
@@ -266,7 +479,7 @@ ShellRoot {
       // keep the control center centered on screen: box slides away by half
       // the extra panel width while the panels hang off the CC content
       property real panelShift: (controlCenter && ccButtons.wifiPanelOpened ? -127.5 : 0)
-                              + (controlCenter && ccButtons.btPanelOpened ? 127.5 : 0)
+                              + (controlCenter && (ccButtons.btPanelOpened || ccButtons.recordPanelOpened) ? 127.5 : 0)
       Behavior on panelShift { NumberAnimation { id: shiftEase; duration: 175; easing.type: Easing.OutBack } }
       anchors.horizontalCenterOffset: panelShift
       readonly property bool revealed: !Config.pillOnHover
@@ -438,7 +651,12 @@ ShellRoot {
           }
       }
 
-      readonly property bool ccPanelOpen: controlCenter && (ccButtons.wifiPanelOpened || ccButtons.btPanelOpened)
+      readonly property bool ccPanelOpen: controlCenter
+        && (ccButtons.wifiPanelOpened || ccButtons.btPanelOpened || ccButtons.recordPanelOpened)
+      // side panels are 308 tall (+25 padding); the record panel can grow
+      // past that when its pill rows wrap, so follow its height when open
+      readonly property real ccMinPanelHeight: ccButtons.recordPanelOpened
+        ? Math.max(333, recordPanel.height + 25) : 333
       readonly property int notifBump: notificationModule.notifications.length > 0
         ? Math.min(notificationStack.listContentHeight + 40, 130) : 0
 
@@ -456,7 +674,8 @@ ShellRoot {
                        || activeOsd === "lock" || activeOsd === "mic") ? osdWidth
                     : toastOwnsPanel ? 320
                     : powerMenu ? 342
-                    : controlCenter ? (390 + (ccButtons.wifiPanelOpened ? 255 : 0) + (ccButtons.btPanelOpened ? 255 : 0))
+                    : controlCenter ? (390 + (ccButtons.wifiPanelOpened ? 255 : 0)
+                        + ((ccButtons.btPanelOpened || ccButtons.recordPanelOpened) ? 255 : 0))
                     : appLauncher ? 378
                     : miniDashboard ? 420
                     : (cliphistOpen && cliphistPreviewing) ? 400
@@ -493,9 +712,9 @@ ShellRoot {
                   : toastOwnsPanel ? 52
                   : powerMenu ? 100
                   : controlCenter && mprisModule.hasPlayer
-                      ? Math.max(303 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccPanelOpen ? 333 : 0)
+                      ? Math.max(346 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccMinPanelHeight)
                   : controlCenter
-                      ? Math.max(181 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccPanelOpen ? 333 : 0)
+                      ? Math.max(224 + notifBump + (ccButtons.nightlightOn ? 20 : 0), box.ccMinPanelHeight)
                   : (cliphistOpen && cliphistPreviewing) ? 380
                   : miniDashboard ? 190
                   : appLauncher
@@ -939,7 +1158,8 @@ ShellRoot {
       Item {
         id: ccContent
         anchors.centerIn: parent
-        property real ccShift: (ccButtons.wifiPanelOpened ? 127.5 : 0) + (ccButtons.btPanelOpened ? -127.5 : 0)
+        property real ccShift: (ccButtons.wifiPanelOpened ? 127.5 : 0)
+          + ((ccButtons.btPanelOpened || ccButtons.recordPanelOpened) ? -127.5 : 0)
         Behavior on ccShift { NumberAnimation { id: contentShiftEase; duration: 175; easing.type: Easing.OutBack } }
         // down/up entry: content drops in from behind the notch on open,
         // lifts back up on close (matches the other menus)
@@ -1004,7 +1224,7 @@ ShellRoot {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          anchors.topMargin: mprisModule.hasPlayer ? box.ccButtonHeight + 180 : 93
+          anchors.topMargin: mprisModule.hasPlayer ? box.ccButtonHeight + 223 : 136
           anchors.leftMargin: 15
           anchors.rightMargin: 2
 
@@ -1081,6 +1301,25 @@ ShellRoot {
           }
           property real btX: ccButtons.btPanelOpened ? 0 : -45
           enabled: ccButtons.btPanelOpened
+        }
+
+        // recording options (right-click on the record button) — same right
+        // slot as bluetooth, mutually exclusive with it
+        RecordPanel {
+          id: recordPanel
+          buttons: ccButtons
+          visible: box.controlCenter && box.activeOsd === ""
+          anchors.left: parent.right
+          anchors.leftMargin: 12
+          anchors.verticalCenter: parent.verticalCenter
+          opacity: ccButtons.recordPanelOpened ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
+          transform: Translate {
+            x: recordPanel.recX
+            Behavior on x { NumberAnimation { duration: 175; easing.type: Easing.OutExpo } }
+          }
+          property real recX: ccButtons.recordPanelOpened ? 0 : -45
+          enabled: ccButtons.recordPanelOpened
         }
       }
 

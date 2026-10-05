@@ -21,6 +21,15 @@ ColumnLayout {
   property bool mediaAutoOpened: false
   property bool wifiPanelOpened: false
   property bool btPanelOpened: false
+  // record options panel (right slot — mutually exclusive with btPanel)
+  property bool recordPanelOpened: false
+  // recording options, shared with RecordPanel (both reference this instance)
+  property int recordFramerate: 30 // 15 / 24 / 30 / 60
+  property string recordQuality: "Medium" // Low / Medium / High / Lossless
+  property string recordCodec: "H.264" // H.264 / H.265 / VP9
+  property bool recordAudio: true
+  property bool recordRegionMode: false // false = full screen, true = slurp region
+  property bool recordNotifyOnStop: true
   property bool hasPlayer: false
   property real playerHeight: 0
 
@@ -93,12 +102,18 @@ ColumnLayout {
   }
 
   onControlCenterOpenChanged: {
-    if (!controlCenterOpen) { root.wifiPanelOpened = false; root.btPanelOpened = false }
-    else { nlProc.running = true; inhProc.running = true; mirrorProc.running = true }
+    if (!controlCenterOpen) {
+      root.wifiPanelOpened = false; root.btPanelOpened = false; root.recordPanelOpened = false
+    } else {
+      nlProc.running = true; inhProc.running = true; mirrorProc.running = true
+      recBtn.pollProc.running = true // refresh recording state on open
+    }
   }
 
   onNotificationPopupChanged: {
-    if (root.notificationPopup) root.wifiPanelOpened = false; root.btPanelOpened = false
+    if (root.notificationPopup) {
+      root.wifiPanelOpened = false; root.btPanelOpened = false; root.recordPanelOpened = false
+    }
   }
 
       RowLayout {
@@ -393,7 +408,10 @@ ColumnLayout {
       onClicked: (mouse) => {
         if (mouse.button === Qt.RightButton) {
           root.btPanelOpened = !root.btPanelOpened
-          if (root.btPanelOpened && BluetoothController.enabled) BluetoothController.refreshDevices(true)
+          if (root.btPanelOpened) {
+            root.recordPanelOpened = false // record panel owns the same right slot
+            if (BluetoothController.enabled) BluetoothController.refreshDevices(true)
+          }
           return
         }
         BluetoothController.setEnabled(!BluetoothController.enabled)
@@ -591,6 +609,196 @@ ColumnLayout {
           }
         }
         Component.onCompleted: mirrorProc.running = true
+    }
+  }
+
+  // row 3: screen recorder (ported from FunShell RecordButton)
+  // left click toggles wf-recorder, right click opens RecordPanel
+  // (right slot — replaces an open bluetooth panel)
+  RowLayout {
+    id: recRow
+    Layout.fillWidth: true
+    spacing: 6 * root.dpi
+    visible: root.controlCenterOpen && !root.mediaAutoOpened
+
+    Rectangle {
+      id: recBtn
+      Layout.fillWidth: true
+      implicitHeight: root.buttonHeight
+      radius: root.buttonRadius
+      color: recBtn.recording
+        ? (recHover.hovered ? Qt.lighter("#e32626", 1.15) : "#e32626")
+        : (recHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: recMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      property bool recording: false
+      property int elapsedSec: 0
+      readonly property string outputDir: (Quickshell.env("HOME") || "/home/notfuad") + "/Videos/Record"
+
+      RowLayout {
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          text: recBtn.recording ? String.fromCodePoint(0xf04db) : String.fromCodePoint(0xf03d1)
+          color: recBtn.recording ? "#ffffff" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: recBtn.recording ? recBtn.formatElapsed(recBtn.elapsedSec) : "Record"
+          color: recBtn.recording ? "#ffffff" : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+
+      HoverHandler { id: recHover }
+      MouseArea {
+        id: recMouse
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: (mouse) => {
+          if (mouse.button === Qt.RightButton) {
+            root.recordPanelOpened = !root.recordPanelOpened
+            if (root.recordPanelOpened) root.btPanelOpened = false // panel replaces bt
+            return
+          }
+          if (recBtn.recording) recBtn.stopRecording()
+          else recBtn.startRecording()
+        }
+      }
+
+      function formatElapsed(s) {
+        const h = Math.floor(s / 3600)
+        const m = Math.floor((s % 3600) / 60)
+        const sec = s % 60
+        const pad = (n) => String(n).padStart(2, "0")
+        return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`
+      }
+
+      // Shell-quote a literal string. Anything passed through this must be
+      // fully resolved in JS first — a quoted '$(...)' would be taken
+      // literally by the shell instead of expanding.
+      function shq(s) {
+        return "'" + String(s).replace(/'/g, "'\\''") + "'"
+      }
+
+      function timestamp() {
+        const d = new Date()
+        const pad = (n) => String(n).padStart(2, "0")
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+          `_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`
+      }
+
+      // quality -> CRF (lower = better/bigger); vp9 uses a wider 0-63 scale
+      function crfFor(quality, isVp9) {
+        const table = isVp9
+          ? { "Low": 40, "Medium": 32, "High": 24, "Lossless": 12 }
+          : { "Low": 32, "Medium": 23, "High": 18, "Lossless": 0 }
+        return table[quality] !== undefined ? table[quality] : table["Medium"]
+      }
+
+      function codecArg(codec) {
+        if (codec === "H.265") return "libx265"
+        if (codec === "VP9") return "libvpx-vp9"
+        return "libx264"
+      }
+
+      function startRecording() {
+        const codec = recBtn.codecArg(root.recordCodec)
+        const isVp9 = codec === "libvpx-vp9"
+        const crf = recBtn.crfFor(root.recordQuality, isVp9)
+        // .mkv tolerates any codec AND abrupt SIGINT far better than .mp4,
+        // whose moov atom can end up unfinalized/corrupt
+        const file = `${recBtn.outputDir}/record_${recBtn.timestamp()}.mkv`
+        const audioFlag = root.recordAudio ? "-a" : ""
+
+        const launch = (geometry) => {
+          const geomFlag = geometry ? `-g ${recBtn.shq(geometry)}` : ""
+          // `exec` replaces this shell with wf-recorder itself (same PID,
+          // process name "wf-recorder") — that's what pgrep/pkill -x below
+          // rely on to find/stop it exactly
+          const cmd = `mkdir -p ${recBtn.shq(recBtn.outputDir)} && exec wf-recorder` +
+            ` -f ${recBtn.shq(file)} -r ${root.recordFramerate}` +
+            ` -c ${codec} -p crf=${crf} ${audioFlag} ${geomFlag}`
+          Quickshell.execDetached(["/bin/sh", "-c", cmd])
+          // optimistic: next poll tick (within 1s) confirms from real process
+          recBtn.recording = true
+          recBtn.elapsedSec = 0
+          pollTimer.start()
+        }
+
+        if (root.recordRegionMode) {
+          // slurp's stdout is already wf-recorder's "-g" format (X,Y WxH);
+          // Esc/right-click cancels slurp with empty stdout -> do nothing
+          slurpProc.onGeometry = launch
+          slurpProc.running = true
+        } else {
+          launch("")
+        }
+      }
+
+      function stopRecording() {
+        // SIGINT (not TERM/KILL): wf-recorder only finalizes the file on a
+        // Ctrl+C-equivalent signal. `-x` (exact PROCESS NAME) not `pgrep -f`:
+        // a -f match also hits the wrapping shell whose cmdline contains the
+        // search pattern (self-match showed "recording" with nothing running)
+        Quickshell.execDetached(["pkill", "-INT", "-x", "wf-recorder"])
+        if (root.recordNotifyOnStop) notifyTimer.start()
+      }
+
+      // give wf-recorder a moment to flush before announcing "saved"
+      Timer {
+        id: notifyTimer
+        interval: 600
+        onTriggered: Quickshell.execDetached(["notify-send", "-a", "Screen Recorder",
+          "Recording saved", recBtn.outputDir])
+      }
+
+      Process {
+        id: slurpProc
+        command: ["slurp"]
+        running: false
+        property var onGeometry: null
+        stdout: StdioCollector {
+          onStreamFinished: {
+            const g = text.trim()
+            if (g.length > 0 && slurpProc.onGeometry) slurpProc.onGeometry(g)
+          }
+        }
+      }
+
+      // single poll does double duty: detects wf-recorder alive AND (via
+      // `ps -o etimes=`) how long it's been running, so the elapsed label is
+      // correct even right after a shell reload mid-recording
+      Process {
+        id: pollProc
+        command: ["/bin/sh", "-c",
+          "ps -o etimes= -p $(pgrep -x wf-recorder | head -1) 2>/dev/null"]
+        running: true
+        stdout: StdioCollector {
+          onStreamFinished: {
+            const t = text.trim()
+            if (/^\d+$/.test(t)) {
+              recBtn.recording = true
+              recBtn.elapsedSec = parseInt(t, 10)
+              pollTimer.start()
+            } else {
+              recBtn.recording = false
+              recBtn.elapsedSec = 0
+              pollTimer.stop()
+            }
+          }
+        }
+      }
+
+      Timer {
+        id: pollTimer
+        interval: 1000
+        repeat: true
+        onTriggered: pollProc.running = true
+      }
     }
   }
 }
