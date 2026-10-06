@@ -192,9 +192,9 @@ ShellRoot {
 
         OptionRow {
           label: "Codec"
-          choices: ["H.264", "H.265", "VP9"]
-          current: panel.buttons ? panel.buttons.recordCodec : "H.264"
-          onPicked: (v) => panel.buttons.recordCodec = v
+          choices: panel.buttons ? panel.buttons.codecChoiceLabels() : ["H.264"]
+          current: panel.buttons ? panel.buttons.codecLabel(panel.buttons.recordCodec) : "H.264"
+          onPicked: (v) => panel.buttons.recordCodec = panel.buttons.codecEnc(v)
         }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderBg2 }
@@ -208,7 +208,12 @@ ShellRoot {
         OptionToggle {
           label: "Select region (not full screen)"
           checked: panel.buttons ? panel.buttons.recordRegionMode : false
-          onToggled: (c) => panel.buttons.recordRegionMode = c
+          onToggled: (c) => {
+            panel.buttons.recordRegionMode = c
+            // enabling spawns slurp immediately; after the crop the
+            // recording starts automatically (startRecording(g))
+            if (c) panel.buttons.startRegionPick()
+          }
         }
 
         OptionToggle {

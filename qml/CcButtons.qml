@@ -26,10 +26,76 @@ ColumnLayout {
   // recording options, shared with RecordPanel (both reference this instance)
   property int recordFramerate: 30 // 15 / 24 / 30 / 60
   property string recordQuality: "Medium" // Low / Medium / High / Lossless
-  property string recordCodec: "H.264" // H.264 / H.265 / VP9
+  property string recordCodec: "libx264" // wf-recorder encoder name (see codecLabel)
+  // encoders probed as usable on this system (fallback list until the probe finishes)
+  property var recordCodecs: ["libx264", "libx265", "libvpx-vp9"]
   property bool recordAudio: true
   property bool recordRegionMode: false // false = full screen, true = slurp region
   property bool recordNotifyOnStop: true
+
+  // ---- screen-recorder codec helpers ----
+  readonly property var codecLabels: ({
+    "libx264": "H.264", "libx265": "H.265", "libvpx": "VP8", "libvpx-vp9": "VP9",
+    "libsvtav1": "AV1",
+    "h264_vaapi": "H.264 (VAAPI)", "hevc_vaapi": "H.265 (VAAPI)",
+    "av1_vaapi": "AV1 (VAAPI)", "vp9_vaapi": "VP9 (VAAPI)",
+    "h264_qsv": "H.264 (QSV)", "hevc_qsv": "H.265 (QSV)",
+    "av1_qsv": "AV1 (QSV)", "vp9_qsv": "VP9 (QSV)",
+    "h264_nvenc": "H.264 (NVENC)", "hevc_nvenc": "H.265 (NVENC)", "av1_nvenc": "AV1 (NVENC)",
+    "h264_amf": "H.264 (AMF)", "hevc_amf": "H.265 (AMF)", "av1_amf": "AV1 (AMF)"
+  })
+  // display order: software first, then hardware families
+  readonly property var codecOrder: [
+    "libx264", "libx265", "libvpx-vp9", "libvpx", "libsvtav1",
+    "h264_vaapi", "hevc_vaapi", "av1_vaapi", "vp9_vaapi",
+    "h264_qsv", "hevc_qsv", "av1_qsv", "vp9_qsv",
+    "h264_nvenc", "hevc_nvenc", "av1_nvenc",
+    "h264_amf", "hevc_amf", "av1_amf"
+  ]
+
+  function codecLabel(enc) { return codecLabels[enc] !== undefined ? codecLabels[enc] : enc }
+  function codecEnc(label) {
+    for (var k in codecLabels) if (codecLabels[k] === label) return k
+    return "libx264"
+  }
+  function codecChoiceLabels() { return recordCodecs.map(function(e) { return codecLabel(e) }) }
+  // RecordPanel's region toggle calls this: slurp -> auto-start recording
+  function startRegionPick() { recBtn.pickRegion() }
+
+  // Probe every candidate encoder with a 0.2s test encode (parallel, ~4s wall).
+  // libaom-av1 is deliberately absent: it probes OK in ffmpeg but hangs
+  // wf-recorder's SIGINT finalize — SVT-AV1 is the AV1 path instead.
+  Process {
+    id: codecProbe
+    running: false
+    command: ["/bin/sh", "-c", `
+dev=$(ls /dev/dri/renderD* 2>/dev/null | head -1)
+probe() {
+  enc="$1"; pre="$2"; post="$3"
+  timeout 4 ffmpeg -v error $pre -f lavfi -i color=c=black:s=64x64:r=5:d=0.2 $post -c:v "$enc" -frames:v 1 -f null - >/dev/null 2>&1 && echo "$enc"
+}
+for e in libx264 libx265 libvpx libvpx-vp9 libsvtav1 h264_nvenc hevc_nvenc av1_nvenc h264_amf hevc_amf av1_amf h264_qsv hevc_qsv av1_qsv vp9_qsv; do
+  probe "$e" "" "" &
+done
+if [ -n "$dev" ]; then
+  for e in h264_vaapi hevc_vaapi av1_vaapi vp9_vaapi; do
+    probe "$e" "-vaapi_device $dev" "-vf format=nv12,hwupload" &
+  done
+fi
+wait
+`]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const found = text.split("\n").map(function(s) { return s.trim() })
+          .filter(function(s) { return s.length > 0 })
+        if (found.length === 0) return
+        const ordered = root.codecOrder.filter(function(e) { return found.indexOf(e) !== -1 })
+        root.recordCodecs = ordered
+        if (ordered.indexOf(root.recordCodec) === -1) root.recordCodec = ordered[0]
+      }
+    }
+  }
+  Component.onCompleted: codecProbe.running = true
   property bool hasPlayer: false
   property real playerHeight: 0
 
@@ -47,6 +113,25 @@ ColumnLayout {
   // night light (hyprsunset)
   property bool nightlightOn: false
   property int nightTemp: 5300
+  // power profile (powerprofilesctl): "" until first poll
+  property string powerProfile: ""
+  readonly property var powerProfileOrder: ["power-saver", "balanced", "performance"]
+
+  function powerProfileLabel(p) {
+    if (p === "performance") return "Perf"
+    if (p === "power-saver") return "Save"
+    return "Bal"
+  }
+
+  // dir +1 = forward (power-saver -> balanced -> performance), -1 = backward
+  function cycleProfile(dir) {
+    let i = powerProfileOrder.indexOf(root.powerProfile)
+    if (i === -1) i = 1 // unknown -> treat as balanced
+    i = (i + dir + powerProfileOrder.length) % powerProfileOrder.length
+    const next = powerProfileOrder[i]
+    root.powerProfile = next // optimistic; poll on next CC open re-syncs
+    Quickshell.execDetached(["powerprofilesctl", "set", next])
+  }
 
   function toggleOsk() {
     if (oskVisible) {
@@ -100,13 +185,25 @@ ColumnLayout {
     running: false
     stdout: StdioCollector { onStreamFinished: root.inhibitorActive = text.trim().length > 0 }
   }
+  Process {
+    id: ppGetProc
+    command: ["powerprofilesctl", "get"]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const v = text.trim()
+        if (v.length > 0) root.powerProfile = v
+      }
+    }
+  }
 
   onControlCenterOpenChanged: {
     if (!controlCenterOpen) {
       root.wifiPanelOpened = false; root.btPanelOpened = false; root.recordPanelOpened = false
     } else {
       nlProc.running = true; inhProc.running = true; mirrorProc.running = true
-      recBtn.pollProc.running = true // refresh recording state on open
+      ppGetProc.running = true
+      if (pollProc) pollProc.running = true // refresh recording state on open
     }
   }
 
@@ -124,7 +221,8 @@ ColumnLayout {
   // wifi
   Rectangle {
     id: wifiBtn
-    implicitWidth: root.buttonWidth
+    implicitWidth: root.buttonWidth // preferred base; row width distributed by flex
+    Layout.fillWidth: true
     implicitHeight: root.buttonHeight
     radius: root.buttonRadius
     visible: root.controlCenterOpen && !root.mediaAutoOpened
@@ -170,7 +268,8 @@ ColumnLayout {
 
   Rectangle {
     id: dndBtn
-    implicitWidth: root.buttonWidth
+    implicitWidth: root.buttonWidth // preferred base; row width distributed by flex
+    Layout.fillWidth: true
     implicitHeight: root.buttonHeight
     radius: root.buttonRadius
     visible: root.controlCenterOpen && !root.mediaAutoOpened
@@ -207,7 +306,8 @@ ColumnLayout {
   // timer / countdown
   Rectangle {
     id: timerBtn
-    implicitWidth: root.buttonWidth
+    implicitWidth: root.buttonWidth // preferred base; row width distributed by flex
+    Layout.fillWidth: true
     implicitHeight: root.buttonHeight
     radius: root.buttonRadius
     color: countdownModule.running
@@ -372,7 +472,8 @@ ColumnLayout {
   // bluetooth
   Rectangle {
     id: btBtn
-    implicitWidth: root.buttonWidth
+    implicitWidth: root.buttonWidth // preferred base; row width distributed by flex
+    Layout.fillWidth: true
     implicitHeight: root.buttonHeight
     radius: root.buttonRadius
     visible: root.controlCenterOpen && !root.mediaAutoOpened
@@ -610,6 +711,8 @@ ColumnLayout {
         }
         Component.onCompleted: mirrorProc.running = true
     }
+
+
   }
 
   // row 3: screen recorder (ported from FunShell RecordButton)
@@ -623,6 +726,8 @@ ColumnLayout {
 
     Rectangle {
       id: recBtn
+      // both buttons = half the row each, so the gap sits on the panel centerline
+      Layout.preferredWidth: (recRow.width - recRow.spacing) / 2
       Layout.fillWidth: true
       implicitHeight: root.buttonHeight
       radius: root.buttonRadius
@@ -638,6 +743,7 @@ ColumnLayout {
       readonly property string outputDir: (Quickshell.env("HOME") || "/home/notfuad") + "/Videos/Record"
 
       RowLayout {
+        id: recContent
         anchors.centerIn: parent
         spacing: 5 * root.dpi
         Text {
@@ -691,24 +797,33 @@ ColumnLayout {
           `_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`
       }
 
-      // quality -> CRF (lower = better/bigger); vp9 uses a wider 0-63 scale
-      function crfFor(quality, isVp9) {
-        const table = isVp9
-          ? { "Low": 40, "Medium": 32, "High": 24, "Lossless": 12 }
-          : { "Low": 32, "Medium": 23, "High": 18, "Lossless": 0 }
-        return table[quality] !== undefined ? table[quality] : table["Medium"]
+      // quality -> encoder param for wf-recorder -p, per encoder family.
+      // Verified against this ffmpeg: crf (libav codecs), global_quality (QSV),
+      // rc_mode=CQP+qp (VAAPI), cq (NVENC), qp_i/qp_p (AMF).
+      function qualityParams(enc, quality) {
+        const crfTable = { "Low": 32, "Medium": 23, "High": 18, "Lossless": 0 }
+        const wideTable = { "Low": 40, "Medium": 32, "High": 24, "Lossless": 12 }
+        const qpTable = { "Low": 40, "Medium": 26, "High": 18, "Lossless": 8 }
+        const t = (name) => {
+          const tbl = (enc === "libvpx" || enc === "libvpx-vp9") ? wideTable
+                    : (enc.indexOf("_vaapi") !== -1 || enc.indexOf("_qsv") !== -1
+                       || enc.indexOf("_nvenc") !== -1 || enc.indexOf("_amf") !== -1) ? qpTable
+                    : crfTable
+          return tbl[name] !== undefined ? tbl[name] : tbl["Medium"]
+        }
+        if (enc === "libx264" || enc === "libx265" || enc === "libsvtav1"
+            || enc === "libvpx" || enc === "libvpx-vp9")
+          return `-p crf=${t(quality)}`
+        if (enc.indexOf("_vaapi") !== -1) return `-p rc_mode=CQP -p qp=${t(quality)}`
+        if (enc.indexOf("_qsv") !== -1) return `-p global_quality=${t(quality)}`
+        if (enc.indexOf("_nvenc") !== -1) return `-p cq=${t(quality)}`
+        if (enc.indexOf("_amf") !== -1) return `-p qp_i=${t(quality)} -p qp_p=${t(quality)}`
+        return ""
       }
 
-      function codecArg(codec) {
-        if (codec === "H.265") return "libx265"
-        if (codec === "VP9") return "libvpx-vp9"
-        return "libx264"
-      }
-
-      function startRecording() {
-        const codec = recBtn.codecArg(root.recordCodec)
-        const isVp9 = codec === "libvpx-vp9"
-        const crf = recBtn.crfFor(root.recordQuality, isVp9)
+      function startRecording(geometry) {
+        const enc = root.recordCodec
+        const qargs = recBtn.qualityParams(enc, root.recordQuality)
         // .mkv tolerates any codec AND abrupt SIGINT far better than .mp4,
         // whose moov atom can end up unfinalized/corrupt
         const file = `${recBtn.outputDir}/record_${recBtn.timestamp()}.mkv`
@@ -721,7 +836,7 @@ ColumnLayout {
           // rely on to find/stop it exactly
           const cmd = `mkdir -p ${recBtn.shq(recBtn.outputDir)} && exec wf-recorder` +
             ` -f ${recBtn.shq(file)} -r ${root.recordFramerate}` +
-            ` -c ${codec} -p crf=${crf} ${audioFlag} ${geomFlag}`
+            ` -c ${enc} ${qargs} ${audioFlag} ${geomFlag}`
           Quickshell.execDetached(["/bin/sh", "-c", cmd])
           // optimistic: next poll tick (within 1s) confirms from real process
           recBtn.recording = true
@@ -729,14 +844,22 @@ ColumnLayout {
           pollTimer.start()
         }
 
+        if (geometry) { launch(geometry); return }
         if (root.recordRegionMode) {
-          // slurp's stdout is already wf-recorder's "-g" format (X,Y WxH);
-          // Esc/right-click cancels slurp with empty stdout -> do nothing
-          slurpProc.onGeometry = launch
-          slurpProc.running = true
+          recBtn.pickRegion()
         } else {
           launch("")
         }
+      }
+
+      // slurp -> wf-recorder -g; used by region mode and the panel's
+      // "Select region" toggle (which starts recording right after cropping)
+      function pickRegion() {
+        if (recBtn.recording) return
+        // slurp's stdout is already wf-recorder's "-g" format (X,Y WxH);
+        // Esc/right-click cancels slurp with empty stdout -> do nothing
+        slurpProc.onGeometry = (g) => recBtn.startRecording(g)
+        slurpProc.running = true
       }
 
       function stopRecording() {
@@ -800,5 +923,52 @@ ColumnLayout {
         onTriggered: pollProc.running = true
       }
     }
+    // power profile (powerprofilesctl): left click cycles forward,
+    // right click cycles backward (power-saver <-> balanced <-> performance)
+    Rectangle {
+      id: ppBtn
+      // both buttons = half the row each, so the gap sits on the panel centerline
+      Layout.preferredWidth: (recRow.width - recRow.spacing) / 2
+      Layout.fillWidth: true
+      Layout.preferredHeight: root.buttonHeight
+      radius: root.buttonRadius
+      readonly property bool active: root.powerProfile !== "" && root.powerProfile !== "balanced"
+      color: ppBtn.active
+        ? (ppHover.hovered ? Qt.lighter("#262626", 1.2) : "#262626")
+        : (ppHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: ppMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      RowLayout {
+        id: ppContent
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          // leaf = power-saver, scale = balanced, speedometer = performance
+          text: root.powerProfile === "performance" ? String.fromCodePoint(0xf04c5)
+              : root.powerProfile === "power-saver" ? String.fromCodePoint(0xf032a)
+              : String.fromCodePoint(0xf05d1)
+          color: root.powerProfile === "performance" ? "#e32626"
+              : root.powerProfile === "power-saver" ? "#2f9e44"
+              : ppBtn.active ? "#4282e9" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: root.powerProfile === "" ? "Power" : root.powerProfileLabel(root.powerProfile)
+          color: ppBtn.active ? Theme.fg : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+      HoverHandler { id: ppHover }
+      MouseArea {
+        id: ppMouse
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: (mouse) => root.cycleProfile(mouse.button === Qt.RightButton ? -1 : 1)
+      }
+    }
+
   }
 }
