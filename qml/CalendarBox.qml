@@ -191,7 +191,7 @@ Rectangle {
         id: dayCell
         width: 26 * box.dpi; height: 22 * box.dpi; radius: 6 * box.dpi
         property bool isToday: {
-          var today = new Date()
+          var today = clock.date // reactive: re-evaluates when SystemClock ticks (after sleep too)
           return index + 1 === today.getDate()
             && datetimeItem.viewMonth === today.getMonth()
             && datetimeItem.viewYear === today.getFullYear()
