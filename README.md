@@ -430,12 +430,6 @@ Example `pillModules`:
 > Use my Hyprland [dotfiles](https://github.com/LUCKYS1NGHH/dotfiles), it's also made for No Dedicated GPU machines.
 > You will get more better performance.
 
-#### Arch users (AUR)
-
-```bash
-paru -S chillnotch-dynamic
-```
-
 #### NixOS users (flake with Home Manager)
 
 Add this repository as an input to your flake:
@@ -482,11 +476,6 @@ sudo ./install.sh # use --skip-deps to skip dependencies installation (arch curr
 <summary>Uninstall?</summary>
 
 ---
-
-#### AUR
-```bash
-paru -R chillnotch-dynamic
-```
 
 #### Other
 ```bash
