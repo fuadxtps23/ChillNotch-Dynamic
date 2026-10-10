@@ -10,6 +10,8 @@ import Quickshell.Widgets
 import Quickshell.Services.UPower
 import Quickshell.Services.Pipewire
 import Quickshell.Services.Notifications
+import Quickshell.Services.Pam
+import QtQuick.Effects
 import QtQuick.Shapes
 
 ShellRoot {
@@ -280,6 +282,8 @@ ShellRoot {
   }
 
   property bool pillHoverActive: false
+  // hover-to-reveal: user setting, or forced while a window is fullscreen
+  readonly property bool hoverMode: Config.pillOnHover || fullscreenActive
 
   property string bg: Theme.bg
   property string fg: Theme.fg
@@ -337,10 +341,8 @@ ShellRoot {
 
   PanelWindow {
     id: panelWindow
-    // overlay layer while the OSD or a notification is up, so the pill
-    // floats above fullscreen windows; back to top layer afterwards
-    WlrLayershell.layer: (box.activeOsd !== "" || notificationModule.active)
-      ? WlrLayershell.Overlay : WlrLayershell.Top
+    // always on the overlay layer so the pill floats above fullscreen windows
+    WlrLayershell.layer: WlrLayershell.Overlay
     WlrLayershell.keyboardFocus: (box.cliphistOpen || box.appLauncher || box.wallpaperSwitcherOpen || box.powerMenu || wifiPanel.passwordPromptVisible || btPanel.wantsKeyboardFocus) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     // cover the screen height (+margin) instead of screen*dpr: with dpr=2
     // the old `885 * scale` made the surface 1770px tall vs the 810px screen
@@ -355,7 +357,7 @@ ShellRoot {
     }
 
     margins.top: 0
-    exclusiveZone: box.revealed ? Config.pillBottomMargin : 0
+    exclusiveZone: (box.revealed && !shellRoot.fullscreenActive) ? Config.pillBottomMargin : 0
     color: "transparent"
 
     // Mask input to only the capsule
@@ -369,8 +371,8 @@ ShellRoot {
       Region {
         intersection: Intersection.Combine
         x: 0; y: 0
-        width: (Config.pillOnHover && !box.revealed) ? Math.ceil(panelWindow.width) : 0
-        height: (Config.pillOnHover && !box.revealed) ? Math.ceil(hoverRevealAreaItem.height) : 0
+        width: (shellRoot.hoverMode && !box.revealed) ? Math.ceil(panelWindow.width) : 0
+        height: (shellRoot.hoverMode && !box.revealed) ? Math.ceil(hoverRevealAreaItem.height) : 0
       }
       // while a widget is open the whole window catches clicks, so a
       // click outside the pill dismisses it (FunShell-style)
@@ -406,7 +408,8 @@ ShellRoot {
         left: parent.left
         right: parent.right
       }
-      height: Math.max(box.implicitHeight + 8, 48)
+      // thin edge strip over fullscreen windows so it barely blocks them
+      height: (shellRoot.fullscreenActive && !Config.pillOnHover) ? 6 : Math.max(box.implicitHeight + 8, 48)
 
       HoverHandler {
         id: revealHover
@@ -440,10 +443,16 @@ ShellRoot {
       // body spans the full box; shoulders/tips flare out by r on each side
       width: box.width + 2 * r
       height: box.height
-      opacity: box.opacity
-      visible: box.visible
+      opacity: box.reveal > 0 ? 1 : 0
+      visible: box.reveal > 0
       scale: box.scale
       transformOrigin: Item.Top
+      transform: Scale {
+        origin.x: notchShape.width / 2
+        origin.y: 0
+        xScale: box.spreadX
+        yScale: box.flatY
+      }
 
       ShapePath {
         fillColor: Config.panelTransparency ? Qt.rgba(0, 0, 0, Config.panelOpacity) : "#000000"
@@ -487,7 +496,7 @@ ShellRoot {
                               + (controlCenter && (ccButtons.btPanelOpened || ccButtons.recordPanelOpened) ? 127.5 : 0)
       Behavior on panelShift { NumberAnimation { id: shiftEase; duration: 175; easing.type: Easing.OutBack } }
       anchors.horizontalCenterOffset: panelShift
-      readonly property bool revealed: !Config.pillOnHover
+      readonly property bool revealed: !shellRoot.hoverMode
         || shellRoot.pillHoverActive
         || controlCenter
         || miniDashboard
@@ -495,16 +504,102 @@ ShellRoot {
         || appLauncher
         || wallpaperSwitcherOpen
         || powerMenu
+        || revealHold
         || mediaAutoOpened
         || (notificationModule.active && !notifFullscreenMode)
+        || notifHold
         || (activeOsd !== "")
-      opacity: revealed && (!fullscreenActive && !notifFullscreenMode) ? 1 : 0
+      // 0 = flattened into the top edge, 1 = full pill. Animated so the pill
+      // morphs like a water drop merging with / leaving a surface
+      property real reveal: (revealed && !notifFullscreenMode) ? 1 : 0
+      Behavior on reveal {
+        NumberAnimation { duration: 380; easing.type: Easing.InOutCubic }
+      }
+      // unfolding for an OSD/notification must land directly in the OSD/toast
+      // shape, not appear as a pill and then resize into it: while the shape
+      // is still folded into the edge the size change is instant
+      readonly property bool foldedSizeJump: reveal < 0.999
+        && (activeOsd !== "" || toastOwnsPanel || mediaAutoOpened)
+      // folding away must keep whatever shape is on screen (OSD/toast/menu):
+      // the size is frozen at the moment the fold starts, so it never morphs
+      // back to the pill first and then disappears
+      property real frozenW: -1
+      property real frozenH: -1
+      property real frozenR: -1
+      onRevealedChanged: {
+        if (!revealed && reveal > 0) {
+          frozenW = width; frozenH = height; frozenR = radius
+        } else { frozenW = -1; frozenH = -1; frozenR = -1 }
+      }
+      // morph: the shape unfolds vertically out of the top screen edge at its
+      // real width -- no sideways stretch, so nothing looks squashed. only the
+      // drawn notch shape is scaled; content just fades, so text never smears
+      readonly property real spreadX: 1
+      readonly property real flatY: Math.max(0.015, Math.pow(reveal, 0.65))
+      // folding out = only the bare shape animates away; the regular pill row
+      // would otherwise show through the frozen OSD-sized shape, cropped
+      readonly property bool foldingOut: !revealed && reveal > 0
+      // content fades in only after the blob has risen out of the edge, so
+      // text never smears while the shape is still flat
+      opacity: foldingOut ? 0 : Math.max(0, Math.min(1, (reveal - 0.45) / 0.4))
 
-      Behavior on opacity {
-        NumberAnimation { duration: 170; easing.type: Easing.OutExpo }
+      // hover-mode menu delay: pill morphs in first (100ms), then the menu
+      // opens; after closing, the pill lingers 1s before flattening away
+      property bool revealHold: false
+      property bool restoringMenu: false
+      property var pendingMenu: null
+      Timer { id: menuOpenTimer; interval: 100
+        onTriggered: {
+          const m = box.pendingMenu; box.pendingMenu = null
+          if (!m) return
+          box.restoringMenu = true
+          box.controlCenter = m.controlCenter; box.miniDashboard = m.miniDashboard
+          box.cliphistOpen = m.cliphistOpen; box.appLauncher = m.appLauncher
+          box.wallpaperSwitcherOpen = m.wallpaperSwitcherOpen; box.powerMenu = m.powerMenu
+          box.restoringMenu = false
+        }
+      }
+      Timer { id: menuCloseTimer; interval: 1000; onTriggered: box.revealHold = false }
+      // after a notification / mpris toast closes the panel morphs back to its
+      // regular shape and lingers 400ms there before folding away
+      property bool notifHold: false
+      Timer { id: notifHoldTimer; interval: 400; onTriggered: box.notifHold = false }
+      Connections {
+        target: notificationModule
+        function onActiveChanged() {
+          if (notificationModule.active) { box.notifHold = false; notifHoldTimer.stop() }
+          else if (shellRoot.hoverMode) { box.notifHold = true; notifHoldTimer.restart() }
+        }
+      }
+      Connections {
+        target: shellRoot
+        function onMediaAutoOpenedChanged() {
+          if (shellRoot.mediaAutoOpened) { box.notifHold = false; notifHoldTimer.stop() }
+          else if (shellRoot.hoverMode) { box.notifHold = true; notifHoldTimer.restart() }
+        }
+      }
+      onAnyWidgetOpenChanged: {
+        if (restoringMenu) return
+        if (anyWidgetOpen) {
+          if (shellRoot.hoverMode && reveal < 0.5 && !pendingMenu) {
+            pendingMenu = { controlCenter: controlCenter, miniDashboard: miniDashboard,
+              cliphistOpen: cliphistOpen, appLauncher: appLauncher,
+              wallpaperSwitcherOpen: wallpaperSwitcherOpen, powerMenu: powerMenu }
+            revealHold = true
+            restoringMenu = true
+            controlCenter = false; miniDashboard = false; cliphistOpen = false
+            appLauncher = false; wallpaperSwitcherOpen = false; powerMenu = false
+            restoringMenu = false
+            menuCloseTimer.stop()
+            menuOpenTimer.restart()
+          } else menuCloseTimer.stop()
+        } else if (!pendingMenu && shellRoot.hoverMode) {
+          revealHold = true
+          menuCloseTimer.restart()
+        }
       }
 
-      visible: opacity > 0
+      visible: opacity > 0 && reveal > 0
       // clip content to the animated box so widget rows never spill onto
       // the wallpaper while the panel is still growing/shrinking
       clip: true
@@ -645,7 +740,9 @@ ShellRoot {
       onImplicitHeightChanged: {
           // follow launcher live while typing (stacked height animations wobble); animate open/close jumps
           heightAnim.stop()
-          if (box.appLauncher && Math.abs(implicitHeight - height) < 120) {
+          if (box.foldedSizeJump) {
+              height = implicitHeight
+          } else if (box.appLauncher && Math.abs(implicitHeight - height) < 120) {
               height = implicitHeight
           } else {
               heightAnim.to = implicitHeight
@@ -741,9 +838,9 @@ ShellRoot {
         : mediaAutoOpened ? 22
         : 20 * Config.pillScale
 
-      implicitWidth: baseWidth
-      implicitHeight: baseHeight
-      radius: baseRadius
+      implicitWidth: frozenW >= 0 ? frozenW : baseWidth
+      implicitHeight: frozenH >= 0 ? frozenH : baseHeight
+      radius: frozenR >= 0 ? frozenR : baseRadius
 
       scale: dpi
       transformOrigin: Item.Top
@@ -764,6 +861,7 @@ ShellRoot {
       }
 
       Behavior on implicitWidth {
+          enabled: !box.foldedSizeJump
           NumberAnimation { id: widthEase; duration: 175; easing.type: Easing.OutBack }
       }
       onImplicitWidthChanged: {
@@ -1678,6 +1776,7 @@ ShellRoot {
         target: mprisModule
         function onNowPlaying() {
             if (box.controlCenter) return
+            if (notificationModule.dndEnabled) return
             if (!box.mediaPopup) mediaAutoOpened = true
             mediaPopupHideTimer.restart()
         }
@@ -1796,7 +1895,10 @@ ShellRoot {
     target: notificationModule
     function onActiveChanged() {
         if (notificationModule.active) {
-            notifFullscreenMode = fullscreenActive
+            // the panel now lives on the overlay layer and morphs in over
+            // fullscreen windows, so notifications use it instead of the
+            // separate fullscreen card
+            notifFullscreenMode = false
         } else {
             notifFullscreenMode = false
         }
@@ -1825,6 +1927,189 @@ ShellRoot {
     }
   }
 
+
+  // ---- lock screen (replaces hyprlock; trigger: ipc call lock lock) ----
+  Scope {
+    id: lockScope
+    property string buffer: ""
+    property bool failed: false
+    property bool authBusy: false
+    property string uptimeText: ""
+    property string batteryText: ""
+    readonly property string wallpaper: "file://" + Quickshell.env("HOME") + "/.config/hypr/current_wallpaper"
+    readonly property bool locked: sessionLock.locked
+
+    function lockNow() { buffer = ""; failed = false; authBusy = false; sessionLock.locked = true; lockInfoProc.running = true }
+    function submit() {
+      if (authBusy || buffer.length === 0) return
+      authBusy = true; failed = false
+      if (!lockPam.start()) { authBusy = false; failed = true }
+    }
+
+    PamContext {
+      id: lockPam
+      config: "hyprlock"
+      onPamMessage: { if (this.responseRequired) this.respond(lockScope.buffer) }
+      onCompleted: result => {
+        lockScope.authBusy = false
+        if (result === PamResult.Success) { lockScope.buffer = ""; sessionLock.locked = false }
+        else { lockScope.failed = true; lockScope.buffer = "" }
+      }
+      onError: { lockScope.authBusy = false; lockScope.failed = true; lockScope.buffer = "" }
+    }
+
+    // fingerprint (fprintd): unlock on match, retry while locked
+    Process {
+      id: fpProc
+      command: ["fprintd-verify"]
+      running: sessionLock.locked
+      stdout: SplitParser {
+        onRead: data => {
+          if (data.indexOf("verify-match") !== -1) { lockScope.buffer = ""; sessionLock.locked = false }
+        }
+      }
+      onExited: { if (sessionLock.locked) fpRetry.restart() }
+    }
+    Timer { id: fpRetry; interval: 1500; onTriggered: { if (sessionLock.locked) fpProc.running = true } }
+
+    Process {
+      id: lockInfoProc
+      command: ["sh", "-c", "uptime -p; for b in /sys/class/power_supply/BAT*; do [ -f \"$b/capacity\" ] && echo \"$(cat $b/capacity)% ($(cat $b/status))\"; done"]
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const l = this.text.trim().split("\n")
+          lockScope.uptimeText = l[0] || ""
+          lockScope.batteryText = l[1] ? String.fromCodePoint(0xf0079) + " " + l[1] : ""
+        }
+      }
+    }
+    Timer {
+      interval: 30000; repeat: true; triggeredOnStart: true
+      running: sessionLock.locked
+      onTriggered: lockInfoProc.running = true
+    }
+
+    WlSessionLock {
+      id: sessionLock
+      locked: false
+
+      WlSessionLockSurface {
+        id: lockSurface
+        color: "black"
+        Item {
+          id: lockRoot
+          anchors.fill: parent
+          focus: true
+          // hyprlock geometry is in physical px; fonts are pt, so only geometry is divided by the scale
+          readonly property real u: 1 / Math.max(1, lockSurface.screen ? lockSurface.screen.devicePixelRatio : 1)
+
+          Keys.onPressed: event => {
+            if (lockScope.authBusy) { event.accepted = true; return }
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) lockScope.submit()
+            else if (event.key === Qt.Key_Backspace) lockScope.buffer = lockScope.buffer.slice(0, -1)
+            else if (event.key === Qt.Key_Escape) lockScope.buffer = ""
+            else if (event.text.length === 1 && event.text.charCodeAt(0) >= 32
+                     && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
+              lockScope.failed = false
+              lockScope.buffer += event.text
+            }
+            event.accepted = true
+          }
+
+          Image {
+            id: lockBg
+            anchors.fill: parent
+            source: lockScope.wallpaper
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: false
+            visible: false
+          }
+          MultiEffect {
+            anchors.fill: parent
+            source: lockBg
+            blurEnabled: true
+            blur: 0.1
+            blurMax: 16
+            brightness: -0.2
+            contrast: -0.11
+            saturation: 0.17
+          }
+          Rectangle { anchors.fill: parent; color: "#33000000"; visible: lockBg.status !== Image.Ready }
+
+          // date
+          Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: -80 * lockRoot.u
+            text: " " + Qt.formatDateTime(clock.date, "dddd, d MMMM") + " "
+            color: "#ffffff"
+            font { family: "SF Pro Rounded"; pixelSize: 24; bold: true }
+          }
+          // time
+          Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 100 * lockRoot.u
+            text: Qt.formatDateTime(clock.date, "hh:mm AP")
+            color: "#ffffff"
+            font { family: "SF Pro Rounded"; pixelSize: 130; weight: Font.Bold }
+          }
+
+          // password field
+          Rectangle {
+            id: pwField
+            width: 230 * lockRoot.u; height: 50 * lockRoot.u; radius: height / 2
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 70 * lockRoot.u
+            color: "#1affffff"
+            border.width: 2 * lockRoot.u
+            border.color: lockScope.failed ? "#ec3737" : "#99ffffff"
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+            clip: true
+
+            Text {
+              anchors.centerIn: parent
+              visible: lockScope.buffer.length === 0
+              text: lockScope.authBusy ? "..." : (lockScope.failed ? "Authentication failed"
+                    : String.fromCodePoint(0x1F512) + " Type Password")
+              color: lockScope.failed ? "#ec3737" : "#99ffffff"
+              font { family: "Victor Mono"; pixelSize: 14; italic: true; bold: true }
+            }
+            Row {
+              anchors.centerIn: parent
+              spacing: 3 * lockRoot.u
+              Repeater {
+                model: lockScope.buffer.length
+                Rectangle { width: 15 * lockRoot.u; height: 15 * lockRoot.u; radius: width / 2; color: "#ffffff" }
+              }
+            }
+          }
+
+          // battery + uptime (bottom-left)
+          Text {
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom; anchors.bottomMargin: 35 * lockRoot.u
+            text: lockScope.batteryText ? " " + lockScope.batteryText + " " : ""
+            color: "#ffffff"
+            font { family: "FantasqueSansM Nerd Font"; pixelSize: 20; bold: true }
+          }
+          Text {
+            id: uptimeLbl
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            text: lockScope.uptimeText ? " " + lockScope.uptimeText + " " : ""
+            color: "#ffffff"
+            font { family: "Victor Mono"; pixelSize: 24; italic: true; bold: true }
+          }
+        }
+      }
+    }
+
+    IpcHandler {
+      target: "lock"
+      function lock(): void { lockScope.lockNow() }
+    }
+  }
 }
 
 
