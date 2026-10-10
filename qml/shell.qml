@@ -1365,10 +1365,6 @@ ShellRoot {
             radius: avatarSize / 2
             property string imgPath: Config.displayPicture ? "file://" + Config.displayPicture.replace("~", Quickshell.env("HOME")) : ""
             color: (imgPath === "" || avatarImg.status !== Image.Ready) ? Theme.bg5 : "transparent"
-            layer.enabled: true
-            layer.smooth: true
-            layer.mipmap: true
-            layer.textureSize: Qt.size(avatarSize, avatarSize)
 
             Image {
               id: avatarImg
@@ -1378,7 +1374,7 @@ ShellRoot {
               asynchronous: false
               smooth: true
               mipmap: true
-              sourceSize: Qt.size(avatarSize, avatarSize)
+              sourceSize: Qt.size(avatarSize * 4, avatarSize * 4)
             }
           }
 
