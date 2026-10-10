@@ -30,7 +30,7 @@ needed_pkgs=(quickshell cliphist brightnessctl
 )
 
 # optional: features degrade gracefully (button/action does nothing) without these
-optional_pkgs=(wf-recorder slurp ffmpeg power-profiles-daemon hyprlock)
+optional_pkgs=(wf-recorder slurp ffmpeg power-profiles-daemon hyprlock matugen)
 
 missing_pkgs=()
 
@@ -54,7 +54,7 @@ if [[ "$skip_arg" != "--skip-deps" ]]; then
       done
 
       if [[ ${#missing_opt[@]} -gt 0 ]]; then
-         read -p "Install optional packages (${missing_opt[*]}) for Record button, Perf button and lock? [y/N]: " ask_opt
+         read -p "Install optional packages (${missing_opt[*]}) for Record button, Perf button, lock and wallpaper colors? [y/N]: " ask_opt
          if [[ "$ask_opt" == "y" || "$ask_opt" == "Y" ]]; then
             pacman -S --needed --noconfirm "${missing_opt[@]}" \
               || warn "some optional packages failed to install, continuing."

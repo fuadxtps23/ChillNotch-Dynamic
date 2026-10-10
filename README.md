@@ -411,7 +411,7 @@ Example `pillModules`:
 - `python-psutil`, `cmake` (build/runtime helpers, installed by `install.sh`)
 
 > [!TIP]
-> `install.sh` auto-installs all of the above for Arch users, **except** these optional packages (it only offers `wf-recorder`, `slurp`, `ffmpeg`, `power-profiles-daemon`, `hyprlock` via a y/N prompt):
+> `install.sh` auto-installs all of the above for Arch users, **except** these optional packages (it only offers `wf-recorder`, `slurp`, `ffmpeg`, `power-profiles-daemon`, `hyprlock`, `matugen` via a y/N prompt):
 
 - Monocraft Font (`ttf-monocraft-git` / `ttf-monocraft-nerd` on AUR)
 - JetBrainsMono Nerd Font (`ttf-jetbrains-mono-nerd` on Arch)

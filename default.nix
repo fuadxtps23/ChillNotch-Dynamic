@@ -54,6 +54,7 @@ nusgmon = pkgs.stdenv.mkDerivation {
      slurp
      ffmpeg
      power-profiles-daemon
+     matugen
    ];
 in
 pkgs.stdenv.mkDerivation rec {
