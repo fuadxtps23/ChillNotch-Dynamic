@@ -115,6 +115,8 @@ wait
   property int nightTemp: 5300
   // power profile (powerprofilesctl): "" until first poll
   property string powerProfile: ""
+  // touchscreen (hyprland input:touchdevice:enabled): false until first poll
+  property bool touchscreenOn: false
   readonly property var powerProfileOrder: ["power-saver", "balanced", "performance"]
 
   function powerProfileLabel(p) {
@@ -197,12 +199,31 @@ wait
     }
   }
 
+  Process {
+    id: touchGetProc
+    command: ["hyprctl", "getoption", "input:touchdevice:enabled", "-j"]
+    running: false
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try { root.touchscreenOn = !!JSON.parse(text).bool } catch (e) {}
+      }
+    }
+  }
+
+  // hyprctl 0.56: keyword is gone, options are set via Lua eval
+  function setTouchscreen(on) {
+    root.touchscreenOn = on // optimistic
+    Quickshell.execDetached(["hyprctl", "eval",
+      "hl.config({input={touchdevice={enabled=" + (on ? "true" : "false") + "}}})"])
+  }
+
   onControlCenterOpenChanged: {
     if (!controlCenterOpen) {
       root.wifiPanelOpened = false; root.btPanelOpened = false; root.recordPanelOpened = false
     } else {
       nlProc.running = true; inhProc.running = true; mirrorProc.running = true
       ppGetProc.running = true
+      touchGetProc.running = true
       if (pollProc) pollProc.running = true // refresh recording state on open
     }
   }
@@ -726,8 +747,9 @@ wait
 
     Rectangle {
       id: recBtn
-      // both buttons = half the row each, so the gap sits on the panel centerline
-      Layout.preferredWidth: (recRow.width - recRow.spacing) / 2
+      // 2 grid cells + internal gap: first gap lands on the panel centerline
+      // (row = Record[2] Power[1] Touch[1], 3 gaps -> (W-3g)/2 + g)
+      Layout.preferredWidth: (recRow.width - 3 * recRow.spacing) / 2 + recRow.spacing
       Layout.fillWidth: true
       implicitHeight: root.buttonHeight
       radius: root.buttonRadius
@@ -927,8 +949,8 @@ wait
     // right click cycles backward (power-saver <-> balanced <-> performance)
     Rectangle {
       id: ppBtn
-      // both buttons = half the row each, so the gap sits on the panel centerline
-      Layout.preferredWidth: (recRow.width - recRow.spacing) / 2
+      // one grid cell (Record keeps 2 cells, gap stays on the panel centerline)
+      Layout.preferredWidth: (recRow.width - 3 * recRow.spacing) / 4
       Layout.fillWidth: true
       Layout.preferredHeight: root.buttonHeight
       radius: root.buttonRadius
@@ -967,6 +989,46 @@ wait
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor
         onClicked: (mouse) => root.cycleProfile(mouse.button === Qt.RightButton ? -1 : 1)
+      }
+    }
+
+    // touchscreen toggle (hyprland input:touchdevice:enabled)
+    Rectangle {
+      id: touchBtn
+      // one grid cell, same as ppBtn
+      Layout.preferredWidth: (recRow.width - 3 * recRow.spacing) / 4
+      Layout.fillWidth: true
+      Layout.preferredHeight: root.buttonHeight
+      radius: root.buttonRadius
+      color: root.touchscreenOn
+        ? (touchHover.hovered ? Qt.lighter("#262626", 1.2) : "#262626")
+        : (touchHover.hovered ? Qt.lighter(root.buttonBgOff, 1.3) : root.buttonBgOff)
+      scale: touchMouse.pressed ? 0.93 : 1.0
+      Behavior on color { ColorAnimation { duration: 150 } }
+      Behavior on scale { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+
+      RowLayout {
+        id: touchContent
+        anchors.centerIn: parent
+        spacing: 5 * root.dpi
+        Text {
+          text: String.fromCodePoint(0xf0741) // md-gesture_tap
+          color: root.touchscreenOn ? "#4282e9" : root.buttonFgOff
+          font { family: Theme.nerdFontFamily; pixelSize: 13 }
+        }
+        Text {
+          text: "Touch"
+          color: root.touchscreenOn ? Theme.fg : root.buttonFgOff
+          font { family: Theme.fontFamily; pixelSize: 10; weight: 500 }
+        }
+      }
+      HoverHandler { id: touchHover }
+      MouseArea {
+        id: touchMouse
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.setTouchscreen(!root.touchscreenOn)
       }
     }
 
