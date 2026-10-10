@@ -37,17 +37,17 @@ into your session at all times. It's not bound to any dotfiles.
 
 ### Resource Usage
 
-- RAM: 200-500 MB (Average 380)
-- CPU: Idle 0%, Average 3%, Min 0.1%, Max 10%
+- RAM: 100-400 MB (Average 160)
+- CPU: Idle 0%, Average 0.8%, Min 0.1%, Max 10%
 - GPU: Idle 0%, Average 15%, Min 6%, Max 45%
 
 > CPU and GPU usage varies with system. a better CPU and GPU use less.
 
 #### My Hardware
 
-- RAM: 8GB (DDR3)
-- CPU: i5 3337U (Dual-core)
-- GPU: Intel HD 4000 (Integrated)
+- RAM: 8GB (DDR4)
+- CPU: i5 1145G7 (4 Core 8 Thread)
+- GPU: Intel Iris Xe (Integrated)
 
 ---
 
