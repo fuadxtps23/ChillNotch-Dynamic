@@ -26,7 +26,11 @@ fi
 needed_pkgs=(quickshell cliphist brightnessctl
              wl-clipboard inotify-tools cmake
              qt6-multimedia python-psutil blueman pipewire
+             networkmanager libpulse upower libnotify
 )
+
+# optional: features degrade gracefully (button/action does nothing) without these
+optional_pkgs=(wf-recorder slurp ffmpeg power-profiles-daemon hyprlock)
 
 missing_pkgs=()
 
@@ -42,6 +46,19 @@ if [[ "$skip_arg" != "--skip-deps" ]]; then
          pacman -S --needed --noconfirm "${missing_pkgs[@]}"
       else
          info "All dependencies installed, skipping."
+      fi
+
+      missing_opt=()
+      for pkg in "${optional_pkgs[@]}"; do
+          pacman -Qi "$pkg" &>/dev/null || missing_opt+=("$pkg")
+      done
+
+      if [[ ${#missing_opt[@]} -gt 0 ]]; then
+         read -p "Install optional packages (${missing_opt[*]}) for Record button, Perf button and lock? [y/N]: " ask_opt
+         if [[ "$ask_opt" == "y" || "$ask_opt" == "Y" ]]; then
+            pacman -S --needed --noconfirm "${missing_opt[@]}" \
+              || warn "some optional packages failed to install, continuing."
+         fi
       fi
 
       PY=/usr/bin/python3

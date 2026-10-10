@@ -47,6 +47,13 @@ nusgmon = pkgs.stdenv.mkDerivation {
      blueman
      awww
      nusgmon
+     networkmanager
+     libnotify
+     upower
+     wf-recorder
+     slurp
+     ffmpeg
+     power-profiles-daemon
    ];
 in
 pkgs.stdenv.mkDerivation rec {

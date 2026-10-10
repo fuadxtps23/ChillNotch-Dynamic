@@ -403,9 +403,15 @@ Example `pillModules`:
 - [pipewire](https://github.com/PipeWire/pipewire)
 - [blueman](https://github.com/blueman-project/blueman)
 - Qt Multimedia (`qt6-multimedia` on Arch)
+- [Hyprland](https://github.com/hyprwm/Hyprland) (compositor; `hyprctl` is used for workspaces, blur, touchscreen toggle, etc.). Touchscreen toggle needs Hyprland with Lua config (`hyprctl eval 'hl.config(...)'`, 0.56+)
+- [NetworkManager](https://networkmanager.dev/) (`nmcli`: Wi-Fi panel, VPN indicator)
+- `pactl` (`libpulse` / `pipewire-pulse`: volume sink/port detection)
+- [UPower](https://upower.freedesktop.org/) (battery module)
+- `libnotify` (`notify-send`: screen recorder notifications)
+- `python-psutil`, `cmake` (build/runtime helpers, installed by `install.sh`)
 
 > [!TIP]
-> `install.sh` auto-installs all of the above for Arch users, **except** these optional packages:
+> `install.sh` auto-installs all of the above for Arch users, **except** these optional packages (it only offers `wf-recorder`, `slurp`, `ffmpeg`, `power-profiles-daemon`, `hyprlock` via a y/N prompt):
 
 - Monocraft Font (`ttf-monocraft-git` / `ttf-monocraft-nerd` on AUR)
 - JetBrainsMono Nerd Font (`ttf-jetbrains-mono-nerd` on Arch)
@@ -413,6 +419,10 @@ Example `pillModules`:
 - `holidays` (Python lib) event dates in calendar; `install.sh` prompts to install this one
 - `cava` for showing audio visuals in media player
 - `awww` for wallpaper switcher if you don't use custom wallpaper script
+- [wf-recorder](https://github.com/ammen99/wf-recorder) + [slurp](https://github.com/emersion/slurp) + `ffmpeg` for the Control Center Record button (slurp = select-region mode; ffmpeg is probed at startup to list only working encoders: x264/x265/VP8/VP9/SVT-AV1, plus VAAPI/QSV/NVENC/AMF when available)
+- [power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon) (`powerprofilesctl`) for the power profile button (Save/Bal/Perf)
+- [hyprlock](https://github.com/hyprwm/hyprlock) for the lock action (default `screenLockAppCommand`, changeable in config)
+- [matugen](https://github.com/InioX/matugen) to generate colors from the wallpaper (wallpaper switcher)
 
 ## Install
 
